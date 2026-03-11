@@ -19,3 +19,4 @@ async def ocr_upload(file: UploadFile = File(...)):
     # Procesar el PDF
     resultado = procesar_pdf(temp_path)
     return {"resultado": resultado}
+        
