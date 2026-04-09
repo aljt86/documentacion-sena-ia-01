@@ -5,7 +5,7 @@ def procesar_pdf(pdf_path: str):
     try:
         resultados = []
         with pdfplumber.open(pdf_path) as pdf:
-            for pagina in paginas:
+            for pagina in pdf.pages:
                 texto = pagina.extract_text()
                 if not texto:
                     continue
