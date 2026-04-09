@@ -15,4 +15,4 @@ def procesar_pdf(pdf_path: str):
         campos = extraer_campos(texto_final)
         return campos
     except Exception as e:
-        return {"error": f"Error al procesar el PDF: {e}"}
+        return {"error": f"Ocurrió un problema procesando el PDF con pdfplumber: {e}"}
