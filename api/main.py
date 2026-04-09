@@ -5,7 +5,7 @@ from app.ocr import procesar_pdf
 
 app = FastAPI(title="OCR Documentos Identidad 2.0")
 
-app.add_minddleware(
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # puedes poner aquí el dominio de tu frontend en lugar de "*"
     allow_credentials=True,
