@@ -5,7 +5,7 @@ def procesar_pdf(pdf_path: str):
         paginas = convert_from_path(pdf_path)
         resultados = []
         for pagina in paginas:
-            img = cv2.cvtColor(np.array(pagina), cv2.COLOR_RGB2BGR)
+            img = cv2.cvtColor(np.array(pagina), cv2.COLOR_RGB2BGR
             if es_borroso(img):
                 return {"error": "Documento borroso, suba una copia legible"}
             texto = pytesseract.image_to_string(img, lang="spa")
