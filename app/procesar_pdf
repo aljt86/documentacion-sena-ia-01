@@ -10,10 +10,11 @@ def procesar_pdf(pdf_path: str):
                 texto = pagina.extract_text()
                 if not texto:
                     continue
-                resultados.appened(texto)
+                resultados.append(texto)
 
         texto_final = "\n".join(resultados)
         campos = extraer_campos(texto_final)
-        return campos
+
+        return {"campos": campos}
     except Exception as e:
         return {"error": f"Ocurrió un problema procesando el PDF con pdfplumber: {e}"}
