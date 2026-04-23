@@ -1,3 +1,4 @@
+import fitz  # PyMuPDF
 import cv2
 import pytesseract
 import numpy as np
@@ -16,10 +17,13 @@ def es_borroso(img):
 
 def procesar_pdf(pdf_path: str):
     try:
-        paginas = convert_from_path(pdf_path, poppler_path=r"C:\poppler")
+        doc = fitz.open(pdf_path)
         resultados = []
-        for pagina in paginas:
-            img = cv2.cvtColor(np.array(pagina), cv2.COLOR_RGB2BGR)
+        for pagina in doc:
+            pix = pagina.get_pixmap()
+            img = np.frombuffer(pix.tobytes("png"), dtype=np.uint8)
+            img = cv2.imdecode(img, cv2.IMREAD_COLOR)
+            
             if es_borroso(img):
                 return "Documento borroso, por favor suba una imagen más legible."
             texto = pytesseract.image_to_string(img, lang="spa")
