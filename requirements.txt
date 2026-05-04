@@ -9,3 +9,5 @@ openpyxl
 python-multipart
 pdfplumber
 PyMuPDF
+sqlalchemy
+pyodbc
