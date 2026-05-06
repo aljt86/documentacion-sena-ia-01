@@ -8,7 +8,7 @@ password = "tu_contraseña"
 
 connection_string = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server"
 
-engine = create_engine(conection_string)
+engine = create_engine(connection_string)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
