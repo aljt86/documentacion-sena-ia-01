@@ -1,20 +1,16 @@
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-server = "localhost"
-database = "documentos_sena"
-username = "tu_usuario"
-password = "tu_contraseña"
+DATABASE_URL = "postgresql://postgres:tu_pasword@localhost/documentos_sena"
 
-connection_string = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server"
-
-engine = create_engine(connection_string)
-
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 def get_db():
     db = SessionLocal()
     try:
         yield db
-    finally: 
+    finally:
         db.close()
