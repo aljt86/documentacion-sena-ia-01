@@ -1,11 +1,11 @@
-from sqlalchemy import Column, Integer, String, TIMESTAMP
-from .db import Base
+from sqlalchemy import Column, Integer, String
+from db import Base
 
 class Usuario(Base):
     __tablename__ = "usuarios"
 
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String, nullable=False)
-    apellido = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
-    fecha_registro = Column(TIMESTAMP)
+    Id = Column(Integer, primary_key=True, index=True)
+    Nombre = Column(String, nullable=False)
+    Apellido = Column(String, nullable=True)
+    Email = Column(String, unique=True, index=True, nullable=False)
+    Password = Column(String, nullable=False)
