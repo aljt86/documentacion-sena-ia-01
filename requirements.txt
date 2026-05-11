@@ -11,3 +11,4 @@ pdfplumber
 PyMuPDF
 sqlalchemy
 pyodbc
+psycopg2-binary
