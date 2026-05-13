@@ -5,7 +5,10 @@ from db import get_db
 from app.ocr import procesar_pdf
 from models import Usuario  # asegúrate de tener este modelo definido
 from pydantic import BaseModel
+from .models import Base
+from .database import engine
 
+Base.metadata.create_all(bind=engine)
 app = FastAPI(title="OCR Documentos Identidad 2.0")
 
 app.add_middleware(
