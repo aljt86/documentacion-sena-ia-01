@@ -10,7 +10,7 @@ app = FastAPI(title="OCR Documentos Identidad 2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # puedes poner aquí el dominio de tu frontend
+    allow_origins=["https://sna-2-0-3.onrender.com"],  # puedes poner aquí el dominio de tu frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
