@@ -1,17 +1,17 @@
-pip==26.1.1
-setuptools==70.0.0
-wheel==0.43.0
-fastapi==0.110.0
-uvicorn==0.29.0
-pdf2image==1.17.0
-pytesseract==0.3.10
-opencv-python==4.9.0.80
-numpy==1.25.2 --only-binary :all:
-pandas==2.2.2 --only-binary :all:
-openpyxl==3.1.2
-python-multipart==0.0.9
-pdfplumber==0.10.3
-PyMuPDF==1.24.4
-sqlalchemy==2.0.29
-pyodbc==5.1.0
-psycopg2-binary==2.9.9
+pip
+setuptools
+wheel
+fastapi
+uvicorn
+pdf2image
+pytesseract
+opencv-python
+numpy --only-binary :all:
+pandas --only-binary :all:
+openpyxl
+python-multipart
+pdfplumber
+PyMuPDF
+sqlalchemy
+pyodbc
+psycopg2-binary
