@@ -5,13 +5,13 @@ import numpy as np
 import os
 
 # Ruta al ejecutable de Tesseract
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
 
 # Ruta al PDF que quieres procesar
-pdf_path = r"F:\Detección documentos Sena 2.0\data\prueba1.pdf"
+pdf_path = os.getenv("OCR_TEST_PDF", r"F:\Detección documentos Sena 2.0\data\prueba1.pdf")
 
 # Ruta a la carpeta bin de Poppler
-poppler_path = r"C:\poppler"
+poppler_path = os.getenv("POPPLER_PATH", r"C:\poppler")
 
 print("DEBUG: archivo PDF:", pdf_path)
 print("DEBUG: existe archivo:", os.path.exists(pdf_path))

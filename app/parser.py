@@ -1,3 +1,4 @@
+import os
 import pdfplumber
 import pytesseract
 from pdf2image import convert_from_path
@@ -6,9 +7,14 @@ import numpy as np
 import re
 from datetime import datetime
 
-# Ruta explícita a Tesseract y Poppler en Windows
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-poppler_path = r"C:\poppler"
+# Configuración de Tesseract y Poppler para entornos Windows y Docker/Linux
+TESSERACT_CMD = os.getenv("TESSERACT_CMD")
+if TESSERACT_CMD:
+    pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+elif os.name == "nt":
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+poppler_path = os.getenv("POPPLER_PATH")
 
 def calcular_edad(fecha_str: str):
     meses = {"ENE":"Jan","FEB":"Feb","MAR":"Mar","ABR":"Apr","MAY":"May","JUN":"Jun",
@@ -172,9 +178,11 @@ def procesar_documento(pdf_path):
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
-                words = page.extract_words()
-                if words:
-                    pass
+                page_text = page.extract_text() or ""
+                if page_text:
+                    texto_total += page_text + "\n"
+            if texto_total.strip():
+                datos = extraer_campos_por_lineas(texto_total)
     except Exception:
         pass
 
@@ -198,4 +206,4 @@ def procesar_documento(pdf_path):
 
 # Wrapper para compatibilidad
 def extraer_campos(texto: str):
-    pass
+    return extraer_campos_por_lineas(texto)

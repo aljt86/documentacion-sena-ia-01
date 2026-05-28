@@ -1,14 +1,19 @@
+
+import sys
+import os 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from db import get_db
-from app.ocr import procesar_pdf
-from models import Usuario  # asegúrate de tener este modelo definido
 from pydantic import BaseModel
-from .models import Base
-from .database import engine
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from api.db import engine, Base, get_db
+from api.models import Usuario 
+from app.ocr import procesar_pdf
 
 Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="OCR Documentos Identidad 2.0")
 
 app.add_middleware(
@@ -32,7 +37,7 @@ async def ocr_upload(file: UploadFile = File(...)):
     with open(temp_path, "wb") as f:
         f.write(await file.read())
     resultado = procesar_pdf(temp_path)
-    return {"resultado": resultado}
+    return resultado
 
 # ---------------------------
 # 📌 Registro de usuarios
@@ -63,7 +68,10 @@ class UserLogin(BaseModel):
 
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.Email == user.email, Usuario.Password == user.password).first()
+    usuario = db.query(Usuario).filter(
+        Usuario.Email == user.email, 
+        Usuario.Password == user.password
+    ).first()
     if not usuario:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
