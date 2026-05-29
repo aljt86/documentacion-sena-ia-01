@@ -42,23 +42,24 @@ async def ocr_upload(file: UploadFile = File(...), db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail=resultado["error"])
     datos = resultado["resultado"]
 
-    nuevo_usuario = usuario(
-        Nombre=datos.get("nombre_completo", ""),
-        Apellido="",  # si quieres separar nombre/apellido, lo ajustas aquí
-        Email=f"{datos.get('numero_documento')}@example.com",  # placeholder si no hay email
-        Password="default123"  # placeholder, luego puedes generar uno seguro
+    nuevo_doc = Documento(
+        NumeroDocumento=datos.get("numero_documento", ""),
+        NombreCompleto=datos.get("nombre_completo", ""),
+        FechaNacimiento=datos.get("fecha_nacimiento", ""),
+        Sexo=datos.get("sexo", ""),
+        LugarNacimiento=datos.get("lugar_nacimiento", ""),
+        Nacionalidad=datos.get("nacionalidad", ""),
+        TipoSangre=datos.get("tipo_sangre", "")
     )
-    db.add(nuevo_usuario)
+    db.add(nuevo_doc)
     db.commit()
-    db.refresh(nuevo_usuario)
+    db.refresh(nuevo_doc)
 
     return {
-        "mensaje": "Usuario creado desde OCR",
-        "usuario_id": nuevo_usuario.Id,
+        "mensaje": "Documento guardado desde OCR",
+        "documento_id": nuevo_doc.Id,
         "datos_extraidos": datos
     }
-    
-    return resultado
 
 # ---------------------------
 # 📌 Registro de usuarios
