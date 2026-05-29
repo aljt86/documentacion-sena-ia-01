@@ -32,11 +32,32 @@ def home():
 # 📌 OCR Upload
 # ---------------------------
 @app.post("/ocr/upload/")
-async def ocr_upload(file: UploadFile = File(...)):
+async def ocr_upload(file: UploadFile = File(...), db: Session = Depends(get_db)):
     temp_path = f"/tmp/{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
     resultado = procesar_pdf(temp_path)
+
+    if "error" in resultado:
+        raise HTTPException(status_code=400, detail=resultado["error"])
+    datos = resultado["resultado"]
+
+    nuevo_usuario = usuario(
+        Nombre=datos.get("nombre_completo", ""),
+        Apellido="",  # si quieres separar nombre/apellido, lo ajustas aquí
+        Email=f"{datos.get('numero_documento')}@example.com",  # placeholder si no hay email
+        Password="default123"  # placeholder, luego puedes generar uno seguro
+    )
+    db.add(nuevo_usuario)
+    db.commit()
+    db.refresh(nuevo_usuario)
+
+    return {
+        "mensaje": "Usuario creado desde OCR",
+        "usuario_id": nuevo_usuario.Id,
+        "datos_extraidos": datos
+    }
+    
     return resultado
 
 # ---------------------------
