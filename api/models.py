@@ -1,6 +1,14 @@
 from sqlalchemy import Column, Integer, String
 from api.db import Base
 
+class Usuario(Base):
+    __tablename__ = "usuarios"
+    Id = Column(Integer, primary_key=True, index=True)
+    Nombre = Column(String)
+    Apellido = Column(String)
+    Email = Column(String, unique=True, index=True)
+    Password = Column(String)
+
 class Documento(Base):
     __tablename__ = "documentos"
     Id = Column(Integer, primary_key=True, index=True)
@@ -11,3 +19,4 @@ class Documento(Base):
     LugarNacimiento = Column(String)
     Nacionalidad = Column(String)
     TipoSangre = Column(String)
+ 
