@@ -9,7 +9,7 @@ from pydantic import BaseModel
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.db import engine, Base, get_db
-from api.models import Usuario 
+from api.models import Usuario, Documento 
 from app.ocr import procesar_pdf
 
 Base.metadata.create_all(bind=engine)
