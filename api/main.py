@@ -93,7 +93,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         Nombre=user.nombre, 
         Apellido="", 
         Email=user.email, 
-        Password=user.password
+        Password=user.password,
         ConteoIngresos=0
     )
     db.add(nuevo)
