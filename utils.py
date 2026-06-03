@@ -1,4 +1,6 @@
 import re
+import cv2
+import pytesseract
 
 def detectar_tipo_documento(datos):
     numero = datos.get("numero_documento", "")
@@ -39,3 +41,23 @@ def validar_datos(datos, tipo_doc="colombia_cedula"):
     )
 
     return validaciones
+
+
+# --- NUEVO BLOQUE DE PREPROCESAMIENTO Y OCR ---
+
+def preprocess_image(path):
+    """Preprocesa la imagen para mejorar la lectura OCR"""
+    img = cv2.imread(path)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.adaptiveThreshold(
+        gray, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY, 11, 2
+    )
+    return thresh
+
+def extraer_texto(path):
+    """Aplica OCR sobre la imagen ya preprocesada"""
+    processed = preprocess_image(path)
+    texto = pytesseract.image_to_string(processed, lang="spa")
+    return texto

@@ -5,7 +5,7 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from utils import detectar_tipo_documento, validar_datos
+from utils import extraer_texto, detectar_tipo_documento, validar_datos
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
