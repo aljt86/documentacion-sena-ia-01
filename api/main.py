@@ -6,12 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from utils import extraer_texto, detectar_tipo_documento, validar_datos
+from app.ocr import procesar_pdf
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.db import engine, Base, get_db
 from api.models import Usuario, Documento 
-from app.ocr import procesar_pdf
 from app.ocr_template import extract_fields
 
 Base.metadata.create_all(bind=engine)
@@ -89,7 +89,13 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
 
-    nuevo = Usuario(Nombre=user.nombre, Apellido="", Email=user.email, Password=user.password)
+    nuevo = Usuario(
+        Nombre=user.nombre, 
+        Apellido="", 
+        Email=user.email, 
+        Password=user.password
+        ConteoIngresos=0
+    )
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
@@ -111,24 +117,15 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not usuario:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
-# ---------------------------
-# 📌 Plantilla para documentos
-# ---------------------------
-class DocumentoInput(BaseModel):
-    programa: str
-
-# ---------------------------
-# 📌 OCR Upload
-# ---------------------------
-@app.post("/ocr/upload/")
-async def ocr_upload(
-    file: UploadFile = File(...),
-    datos_extra: DocumentoInput = Depends(),
-    db: Session = Depends(get_db)
-):
-
+    usuario.ConteoIngresos += 1
+    db.commit()
+    db.refresh(usuario)
+    
     # ⚠️ Aquí deberías generar un JWT en producción
     token = f"fake-token-{usuario.Id}"
-    return {"mensaje": "Login exitoso", "token": token}
+    return {"mensaje": "Login exitoso", 
+            "token": token,
+            "conteo_ingresos": usuario.ConteoIngresos
+            }
 
 

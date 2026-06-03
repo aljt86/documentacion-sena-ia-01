@@ -8,6 +8,7 @@ class Usuario(Base):
     Apellido = Column(String)
     Email = Column(String, unique=True, index=True)
     Password = Column(String)
+    ConteoIngresos = Column(Integer, default=0)
 
 class Documento(Base):
     __tablename__ = "documentos"
