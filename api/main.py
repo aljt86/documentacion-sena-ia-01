@@ -5,12 +5,14 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from utils import detectar_tipo_documento, validar_datos
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.db import engine, Base, get_db
 from api.models import Usuario, Documento 
 from app.ocr import procesar_pdf
+from app.ocr_template import extract_fields
 
 Base.metadata.create_all(bind=engine)
 
@@ -32,15 +34,24 @@ def home():
 # 📌 OCR Upload
 # ---------------------------
 @app.post("/ocr/upload/")
-async def ocr_upload(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def ocr_upload(
+    file: UploadFile = File(...),
+    programa: str = "", 
+    db: Session = Depends(get_db)
+):
     temp_path = f"/tmp/{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
-    resultado = procesar_pdf(temp_path)
+    datos = extract_fields(temp_path)
 
-    if "error" in resultado:
-        raise HTTPException(status_code=400, detail=resultado["error"])
-    datos = resultado["resultado"]
+    tipo_doc = detectar_tipo_documento(datos)
+    validaciones = validar_datos(datos, tipo_doc)
+
+    if not all(validaciones.values()):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Datos extraídos no válidos", "validaciones": validaciones}
+        )
 
     nuevo_doc = Documento(
         NumeroDocumento=datos.get("numero_documento", ""),
@@ -49,7 +60,8 @@ async def ocr_upload(file: UploadFile = File(...), db: Session = Depends(get_db)
         Sexo=datos.get("sexo", ""),
         LugarNacimiento=datos.get("lugar_nacimiento", ""),
         Nacionalidad=datos.get("nacionalidad", ""),
-        TipoSangre=datos.get("tipo_sangre", "")
+        TipoSangre=datos.get("tipo_sangre", ""),
+        Programa=programa
     )
     db.add(nuevo_doc)
     db.commit()
@@ -58,7 +70,9 @@ async def ocr_upload(file: UploadFile = File(...), db: Session = Depends(get_db)
     return {
         "mensaje": "Documento guardado desde OCR",
         "documento_id": nuevo_doc.Id,
-        "datos_extraidos": datos
+        "datos_extraidos": datos,
+        "tipo_documento": tipo_doc,
+        "programa": programa
     }
 
 # ---------------------------
@@ -96,7 +110,25 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     ).first()
     if not usuario:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    
+# ---------------------------
+# 📌 Plantilla para documentos
+# ---------------------------
+class DocumentoInput(BaseModel):
+    programa: str
+
+# ---------------------------
+# 📌 OCR Upload
+# ---------------------------
+@app.post("/ocr/upload/")
+async def ocr_upload(
+    file: UploadFile = File(...),
+    datos_extra: DocumentoInput = Depends(),
+    db: Session = Depends(get_db)
+):
 
     # ⚠️ Aquí deberías generar un JWT en producción
     token = f"fake-token-{usuario.Id}"
     return {"mensaje": "Login exitoso", "token": token}
+
+

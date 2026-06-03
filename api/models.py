@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from api.db import Base
 
 class Usuario(Base):
@@ -12,6 +12,7 @@ class Usuario(Base):
 class Documento(Base):
     __tablename__ = "documentos"
     Id = Column(Integer, primary_key=True, index=True)
+    UsuarioId = Column(Integer, ForeignKey("usuarios.Id"))
     NumeroDocumento = Column(String, unique=True, index=True)
     NombreCompleto = Column(String)
     FechaNacimiento = Column(String)
@@ -19,4 +20,5 @@ class Documento(Base):
     LugarNacimiento = Column(String)
     Nacionalidad = Column(String)
     TipoSangre = Column(String)
+    Programa = Column(String)
  
