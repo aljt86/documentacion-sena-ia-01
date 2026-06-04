@@ -36,13 +36,14 @@ def home():
 @app.post("/ocr/upload/")
 async def ocr_upload(
     file: UploadFile = File(...),
-    programa: str = "", 
+    programa: str = Form(...),
+    modelo: str = Form("hologramas"), 
     db: Session = Depends(get_db)
 ):
     temp_path = f"/tmp/{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
-    datos = extract_fields(temp_path)
+    datos = extract_fields(temp_path, modelo=modelo)
 
     tipo_doc = detectar_tipo_documento(datos)
     validaciones = validar_datos(datos, tipo_doc)
@@ -55,7 +56,7 @@ async def ocr_upload(
 
     nuevo_doc = Documento(
         NumeroDocumento=datos.get("numero_documento", ""),
-        NombreCompleto=datos.get("nombre_completo", ""),
+        NombreCompleto=datos.get("nombre_completo", datos.get("apellidos", "") + " " + datos.get("nombres", "")),
         FechaNacimiento=datos.get("fecha_nacimiento", ""),
         Sexo=datos.get("sexo", ""),
         LugarNacimiento=datos.get("lugar_nacimiento", ""),
