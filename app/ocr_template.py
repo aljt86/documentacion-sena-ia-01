@@ -38,7 +38,7 @@ def extract_fields(file_path, modelo="hologramas"):
     zones = zones_digital if modelo == "digital" else zones_hologramas
 
     results = {}
-    for field, (x1, y1, x2, y2) in zones
+    for field, (x1, y1, x2, y2) in zones.items():
         box = (
             int(x1 * width), int(y1 * height),
             int(x2 * width), int(y2 * height)
