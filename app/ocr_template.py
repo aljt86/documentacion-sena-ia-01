@@ -2,6 +2,32 @@
 import pdfplumber
 import pytesseract
 from PIL import Image
+import cv2
+import numpy as np
+
+# Función de preprocesamiento 
+def preprocess_image(pil_img):
+    img = np.array(pil_img.convert("L"))  # Convertir a escala de grises
+    coords = np.column_stack(np.where(img > 0))  # Encontr
+    angle = cv2.minAreaRect(coords)[-1]
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+    (h, w) = img.shape[:2]
+    M = cv2.getRotationMatrix2D((w // 2, h // 2), angle, 1.0)
+    img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+    _, thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    denoised = cv2.medianBlur(thresh, 3)
+
+    kernel = np.array([[0, -1, 0],
+                       [-1, 5, -1],
+                       [0, -1, 0]])
+    sharpened = cv2.filter2D(denoised, -1, kernel)
+    return Image.fromarray(sharpened) 
+ 
 
 # Plantilla para cédula digital (policarbonato)
 zones_digital = {
@@ -44,6 +70,7 @@ def extract_fields(file_path, modelo="hologramas"):
             int(x2 * width), int(y2 * height)
         )
         crop = img.crop(box)
+        crop = preprocess_image(crop)
         text = pytesseract.image_to_string(crop, lang="spa")
         results[field] = text.strip()
     
