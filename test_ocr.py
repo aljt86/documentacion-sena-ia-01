@@ -3,7 +3,17 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 import cv2
 import numpy as np
 import os
+from app.ocr_template import extract_fields
 
+# Ruta al PDF que quieres probar
+pdf_path = "data/prueba14.pdf"   # cámbiala según tu archivo
+
+# Modelo: "digital" o "hologramas"
+resultado = extract_fields(pdf_path, modelo="hologramas")
+
+print("Resultado OCR:")
+for campo, valor in resultado.items():
+    print(f"{campo}: {valor}")
 # Ruta al ejecutable de Tesseract
 pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
 

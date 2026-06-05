@@ -10,10 +10,12 @@ class Usuario(Base):
     Password = Column(String)
     ConteoIngresos = Column(Integer, default=0)
 
+    documentos = relationship("Documento", back_populates="usuario")
+
 class Documento(Base):
     __tablename__ = "documentos"
+
     Id = Column(Integer, primary_key=True, index=True)
-    UsuarioId = Column(Integer, ForeignKey("usuarios.Id"))
     NumeroDocumento = Column(String, unique=True, index=True)
     NombreCompleto = Column(String)
     FechaNacimiento = Column(String)
@@ -22,4 +24,6 @@ class Documento(Base):
     Nacionalidad = Column(String)
     TipoSangre = Column(String)
     Programa = Column(String)
- 
+    
+    usuario = relationship("Usuario", back_populates="documentos")
+    

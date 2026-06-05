@@ -71,7 +71,7 @@ def extract_fields(file_path, modelo="hologramas"):
         )
         crop = img.crop(box)
         crop = preprocess_image(crop)
-        crop.save(f"/tmp/crop_{field}.png")  # Guardar para depuración
+        # crop.save(f"data/crop_{field}.png")  # Guardar para depuración
         text = pytesseract.image_to_string(crop, lang="spa")
         logging.warning(f"OCR {field}: {text}")
         results[field] = text.strip()

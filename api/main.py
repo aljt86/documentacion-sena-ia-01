@@ -37,10 +37,11 @@ def home():
 async def ocr_upload(
     file: UploadFile = File(...),
     programa: str = Form(...),
-    modelo: str = Form("hologramas"), 
+    modelo: str = Form("hologramas"),
+    usuario_id: int = Form(...), 
     db: Session = Depends(get_db)
 ):
-    temp_path = f"/tmp/{file.filename}"
+    temp_path = os.path.join("data", "tmp", file.filename)
     with open(temp_path, "wb") as f:
         f.write(await file.read())
     datos = extract_fields(temp_path, modelo=modelo)
@@ -55,6 +56,7 @@ async def ocr_upload(
         )
 
     nuevo_doc = Documento(
+        UsuarioId=usuario_id,
         NumeroDocumento=datos.get("numero_documento", ""),
         NombreCompleto=datos.get("nombre_completo", datos.get("apellidos", "") + " " + datos.get("nombres", "")),
         FechaNacimiento=datos.get("fecha_nacimiento", ""),
