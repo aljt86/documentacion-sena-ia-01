@@ -16,13 +16,13 @@ zones_digital = {
 
 # Plantilla para cédula amarilla con hologramas
 zones_hologramas = {
-    "numero_documento": (0.65, 0.05, 0.95, 0.12),   # arriba derecha
-    "apellidos":        (0.20, 0.18, 0.80, 0.24),   # línea de apellidos
-    "nombres":          (0.20, 0.25, 0.80, 0.31),   # línea de nombres
-    "lugar_nacimiento": (0.20, 0.40, 0.60, 0.46),   # POPAYÁN (CAUCA)
-    "fecha_nacimiento": (0.20, 0.47, 0.45, 0.53),   # 23-MAY-2004
-    "sexo":             (0.65, 0.65, 0.75, 0.70),   # M/F
-    "tipo_sangre":      (0.75, 0.65, 0.95, 0.70),   # O+, A+, etc.
+    "numero_documento": (0.4/8.5, 1.6/5.4, 4.5/8.5, 3.4/5.4),
+    "apellidos":        (0.4/8.5, 2.0/5.4, 4.5/8.5, 3.1/5.4),
+    "nombres":          (0.4/8.5, 2.8/5.4, 4.5/8.5, 2.4/5.4),
+    "fecha_nacimiento": (3.3/8.5, 0.5/5.4, 1.2/8.5, 4.5/5.4),
+    "lugar_nacimiento": (3.3/8.5, 0.8/5.4, 3.1/8.5, 3.8/5.4),
+    "tipo_sangre":      (4.9/8.5, 1.6/5.4, 3.0/8.5, 3.1/5.4),
+    "sexo":             (6.3/8.5, 1.6/5.4, 1.6/8.5, 3.1/5.4),
 }
 
 def extract_fields(file_path, modelo="hologramas"):
@@ -46,21 +46,5 @@ def extract_fields(file_path, modelo="hologramas"):
         crop = img.crop(box)
         text = pytesseract.image_to_string(crop, lang="spa")
         results[field] = text.strip()
-
-    # Selección de plantilla
-    if modelo == "digital":
-        zones = zones_digital
-    else:
-        zones = zones_hologramas
-
-    results = {}
-    for field, (x1, y1, x2, y2) in zones.items():
-        box = (
-            int(x1 * width), int(y1 * height),
-            int(x2 * width), int(y2 * height)
-        )
-        crop = img.crop(box)
-        text = pytesseract.image_to_string(crop, lang="spa")
-        results[field] = text.strip()
-
+    
     return results
