@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship 
 from api.db import Base
 
 class Usuario(Base):
@@ -24,6 +25,6 @@ class Documento(Base):
     Nacionalidad = Column(String)
     TipoSangre = Column(String)
     Programa = Column(String)
-    
+
     usuario = relationship("Usuario", back_populates="documentos")
     
