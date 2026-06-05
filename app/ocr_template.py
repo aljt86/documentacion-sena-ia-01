@@ -4,7 +4,7 @@ import pytesseract
 from PIL import Image
 import cv2
 import numpy as np
-
+import logging 
 # Función de preprocesamiento 
 def preprocess_image(pil_img):
     img = np.array(pil_img.convert("L"))  # Convertir a escala de grises
@@ -71,7 +71,9 @@ def extract_fields(file_path, modelo="hologramas"):
         )
         crop = img.crop(box)
         crop = preprocess_image(crop)
+        crop.save(f"/tmp/crop_{field}.png")  # Guardar para depuración
         text = pytesseract.image_to_string(crop, lang="spa")
+        logging.warning(f"OCR {field}: {text}")
         results[field] = text.strip()
     
     return results
