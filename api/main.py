@@ -45,6 +45,7 @@ async def ocr_upload(
     with open(temp_path, "wb") as f:
         f.write(await file.read())
     datos = extract_fields(temp_path, modelo=modelo)
+    print("DEBUG OCR", datos)
 
     tipo_doc = detectar_tipo_documento(datos)
     validaciones = validar_datos(datos, tipo_doc)
