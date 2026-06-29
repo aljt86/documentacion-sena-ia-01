@@ -95,7 +95,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 
     nuevo = Usuario(
         Nombre=user.nombre, 
-        Apellido="", 
+        Apellido=apellido, 
         Email=user.email, 
         Password=user.password,
         ConteoIngresos=0
