@@ -13,8 +13,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api.db import engine, Base, get_db
 from api.models import Usuario, Documento 
 from app.ocr_template import extract_fields
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
 Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(title="OCR Documentos Identidad 2.0")
 
@@ -95,9 +105,9 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 
     nuevo = Usuario(
         Nombre=user.nombre, 
-        Apellido=apellido, 
+        Apellido="", 
         Email=user.email, 
-        Password=user.password,
+        Password=hash_password(user.password),
         ConteoIngresos=0
     )
     db.add(nuevo)
@@ -116,7 +126,7 @@ class UserLogin(BaseModel):
 def login(user: UserLogin, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(
         Usuario.Email == user.email, 
-        Usuario.Password == user.password
+        Usuario.Password == hash_password(user.password)
     ).first()
     if not usuario:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
@@ -129,6 +139,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     token = f"fake-token-{usuario.Id}"
     return {"mensaje": "Login exitoso", 
             "token": token,
+            "usuario_id": usuario.Id,
             "conteo_ingresos": usuario.ConteoIngresos
             }
 
