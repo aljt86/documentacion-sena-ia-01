@@ -96,6 +96,7 @@ class UserRegister(BaseModel):
     nombre: str
     email: str
     password: str
+    apellido: str | None = None   # opcional
 
 @app.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
@@ -105,7 +106,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 
     nuevo = Usuario(
         Nombre=user.nombre, 
-        Apellido="", 
+        Apellido=user.apellido if user.apellido else "", 
         Email=user.email, 
         Password=hash_password(user.password),
         ConteoIngresos=0
