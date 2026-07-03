@@ -4,7 +4,7 @@ from api.db import Base
 
 class Usuario(Base):
     __tablename__ = "usuarios"
-    Id = Column(Integer, primary_key=True, index=True, autoincrement=true)
+    Id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     Nombre = Column(String)
     Apellido = Column(String, nullable=True)
     Email = Column(String, unique=True, index=True)
