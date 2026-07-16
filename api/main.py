@@ -125,11 +125,12 @@ class UserLogin(BaseModel):
 
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(
-        Usuario.Email == user.email, 
-        Usuario.Password == hash_password(user.password)
-    ).first()
+    usuario = db.query(Usuario).filter(Usuario.Email == user.email).first()
+    
     if not usuario:
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    
+    if not verify_password(user.password, usuario.Password):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
     usuario.ConteoIngresos += 1
