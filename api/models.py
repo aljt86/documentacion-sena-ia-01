@@ -15,8 +15,10 @@ class Usuario(Base):
 
 class Documento(Base):
     __tablename__ = "documentos"
-
     Id = Column(Integer, primary_key=True, index=True)
+
+    UsuarioId = Column(Integer, ForeignKey("usuarios.Id"), nullable=False)
+    
     NumeroDocumento = Column(String, unique=True, index=True)
     NombreCompleto = Column(String)
     FechaNacimiento = Column(String)
