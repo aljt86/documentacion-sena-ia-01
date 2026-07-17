@@ -17,8 +17,14 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def _truncate_password(password: str) -> str:
+    encoded = password.encode('utf-8')
+    if len(encoded) > 72:
+        return encoded[:72].decode('utf-8')
+    return password
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(_truncate_password(password))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
