@@ -17,6 +17,7 @@ from app.ocr_template import extract_fields
 from passlib.context import CryptContext
 
 logging.basicConfig(level=logging.INFO) 
+Base.metadata.create_all(bind=engine)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -31,8 +32,6 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(_truncate_password(plain_password), hashed_password)
-
-Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(title="OCR Documentos Identidad 2.0")
