@@ -1,6 +1,7 @@
 
 import sys
-import os 
+import os
+import logging  
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -14,6 +15,8 @@ from api.db import engine, Base, get_db
 from api.models import Usuario, Documento 
 from app.ocr_template import extract_fields
 from passlib.context import CryptContext
+
+logging.basicConfig(level=logging.INFO) 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -61,7 +64,7 @@ async def ocr_upload(
     with open(temp_path, "wb") as f:
         f.write(await file.read())
     datos = extract_fields(temp_path, modelo=modelo)
-    print("DEBUG OCR", datos)
+    logging.info("DEBUG OCR: %s", datos)
 
     tipo_doc = detectar_tipo_documento(datos)
     validaciones = validar_datos(datos, tipo_doc)
@@ -106,21 +109,35 @@ class UserRegister(BaseModel):
 
 @app.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    existing = db.query(Usuario).filter(Usuario.Email == user.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+    logging.info(f"📝 Registro intentado para: {user.email}")
+    try:
+        # Verificar si el correo ya existe
+        existing = db.query(Usuario).filter(Usuario.Email == user.email).first()
+        if existing:
+            logging.warning(f"⚠️ Correo ya registrado: {user.email}")
+            raise HTTPException(status_code=400, detail="El correo ya está registrado")
 
-    nuevo = Usuario(
-        Nombre=user.nombre, 
-        Apellido=user.apellido if user.apellido else "", 
-        Email=user.email, 
-        Password=hash_password(user.password),
-        ConteoIngresos=0
-    )
-    db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
-    return {"mensaje": "Usuario registrado correctamente", "usuario_id": nuevo.Id}
+        # Crear nuevo usuario
+        nuevo = Usuario(
+            Nombre=user.nombre,
+            Apellido=user.apellido if user.apellido else "",
+            Email=user.email,
+            Password=hash_password(user.password),
+            ConteoIngresos=0
+        )
+        db.add(nuevo)
+        db.commit()
+        db.refresh(nuevo)
+        logging.info(f"✅ Usuario registrado: ID {nuevo.Id}, Email {nuevo.Email}")
+        return {"mensaje": "Usuario registrado correctamente", "usuario_id": nuevo.Id}
+
+    except HTTPException as e:
+        # Relanzar excepciones HTTP (400, 401, etc.)
+        raise e
+    except Exception as e:
+        # Capturar cualquier otro error (500)
+        logging.error(f"❌ Error en registro: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 # ---------------------------
 # 📌 Login de usuarios
