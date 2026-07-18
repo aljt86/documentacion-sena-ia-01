@@ -38,7 +38,10 @@ app = FastAPI(title="OCR Documentos Identidad 2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://sna-2-0-3.onrender.com"],  # puedes poner aquí el dominio de tu frontend
+    allow_origins=["https://sna-2-0-3.onrender.com",
+                   "https://localhost:3000",
+                   "http://127.0.0.1:3000"
+    ],  # puedes poner aquí el dominio de tu frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -147,18 +150,15 @@ class UserLogin(BaseModel):
 
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
+    logging.info(f"🔐 Login intentado: {user.email}")
     usuario = db.query(Usuario).filter(Usuario.Email == user.email).first()
     
-    if not usuario:
+    if not usuario or not verify_password(user.password, usuario.Password):
+        logging.warning(f"⚠️ Credenciales inválidas para: {user.email}")
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    
-    if not verify_password(user.password, usuario.Password):
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    
     usuario.ConteoIngresos += 1
     db.commit()
-    db.refresh(usuario)
-    
+    db.refresh(usuario)    
     # ⚠️ Aquí deberías generar un JWT en producción
     token = f"fake-token-{usuario.Id}"
     return {"mensaje": "Login exitoso", 
