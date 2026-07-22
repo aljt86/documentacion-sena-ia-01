@@ -2,7 +2,7 @@
 import sys
 import os
 import logging
-import bcryp  
+import bcrypt 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
