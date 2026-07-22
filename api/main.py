@@ -1,7 +1,8 @@
 
 import sys
 import os
-import logging  
+import logging
+import bcryp  
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -14,12 +15,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api.db import engine, Base, get_db
 from api.models import Usuario, Documento 
 from app.ocr_template import extract_fields
-from passlib.context import CryptContext
+
 
 logging.basicConfig(level=logging.INFO) 
 Base.metadata.create_all(bind=engine)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 def _truncate_password(password: str) -> str:
     encoded = password.encode('utf-8')
@@ -28,10 +29,15 @@ def _truncate_password(password: str) -> str:
     return password
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(_truncate_password(password))
+    password_bytes = password.encode('utf-8')[:72]  # Truncate to 72 bytes for bcrypt
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(_truncate_password(plain_password), hashed_password)
+    password_bytes = plain_password.encode('utf-8')[:72]  # Truncate to 72 bytes for bcrypt
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
 app = FastAPI(title="OCR Documentos Identidad 2.0")
