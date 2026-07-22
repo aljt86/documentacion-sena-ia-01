@@ -3,14 +3,13 @@ import sys
 import os
 import logging
 import bcrypt
-import datetime 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from utils import extraer_texto, detectar_tipo_documento, validar_datos
 from app.ocr import procesar_pdf
-from datetime
+from datetime import datetime 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
