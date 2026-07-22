@@ -2,13 +2,15 @@
 import sys
 import os
 import logging
-import bcrypt 
+import bcrypt
+import datetime 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from utils import extraer_texto, detectar_tipo_documento, validar_datos
 from app.ocr import procesar_pdf
+from datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -68,10 +70,20 @@ async def ocr_upload(
     usuario_id: int = Form(...), 
     db: Session = Depends(get_db)
 ):
-    temp_path = os.path.join("data", "tmp", file.filename)
-    with open(temp_path, "wb") as f:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
+    os.makedirs(programa_dir, exist_ok=True)
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{usuario_id}_{timestamp}_{file.filename}"
+    file_path = os.path.join(programa_dir, filename)
+
+    with open(file_path, "wb") as f:
         f.write(await file.read())
-    datos = extract_fields(temp_path, modelo=modelo)
+
+    logging.info(f"📂 Documento guardado en: {file_path}")
+
+    datos = extract_fields(file_path, modelo=modelo)
     logging.info("DEBUG OCR: %s", datos)
 
     tipo_doc = detectar_tipo_documento(datos)
