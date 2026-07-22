@@ -45,10 +45,7 @@ app = FastAPI(title="OCR Documentos Identidad 2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://sna-2-0-3.onrender.com",
-        "https://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
+        "https://sna-2-0-3.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -163,7 +160,6 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     try:
         existing = db.query(Usuario).filter(Usuario.Email == user.email).first()
         if existing:
-            logging.warning(f"⚠️ Correo ya registrado: {user.email}")
             raise HTTPException(status_code=400, detail="El correo ya está registrado")
         
         nuevo = Usuario(
