@@ -61,7 +61,7 @@ zones_hologramas = {
     "sexo":             (6.3/8.5, 1.6/5.4, 1.6/8.5, 3.1/5.4),
 }
 
-def extract_fields(file_path, modelo="hologramas"):
+def extract_fields_from_text(text):
     """
     Extrae los campos de la cédula según el modelo.
     modelo puede ser "digital" o "hologramas".
@@ -130,7 +130,6 @@ def extract_fields(file_path, modelo="hologramas"):
                 return {}
 
             page = pdf.pages[0]
-
             text = page.extract_text() or ""
             logging.info(f"Texto extraído del PDF (primeros 300 caracteres): {text[:300]}...")
 
@@ -143,9 +142,10 @@ def extract_fields(file_path, modelo="hologramas"):
                     logging.warning("⚠️ El texto extraído del PDF no contiene datos válidos, usando OCR con imágenes...")         
             else:
                 logging.warning("⚠️ El PDF no tiene texto extraíble, usando OCR con imágenes...")
+
             img = page.to_image(resolution=150).original
             width, height = img.size
-                logging.info(f"📐 Tamaño de imagen: {width}x{height} px")
+            logging.info(f"📐 Tamaño de imagen: {width}x{height} px")
 
             zones = zones_digital if modelo == "digital" else zones_hologramas
 
