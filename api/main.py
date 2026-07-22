@@ -73,7 +73,7 @@ async def ocr_upload(
     programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
     os.makedirs(programa_dir, exist_ok=True)
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{usuario_id}_{timestamp}_{file.filename}"
     file_path = os.path.join(programa_dir, filename)
 
