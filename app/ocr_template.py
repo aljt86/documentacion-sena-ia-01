@@ -13,16 +13,8 @@ def preprocess_image(pil_img):
 
     try:
         img = np.array(pil_img.convert("L"))  # Convertir a escala de grises
-        coords = np.column_stack(np.where(img > 0))  # Encontrar coordenadas
-        if len(coords) > 0:
-            angle = cv2.minAreaRect(coords)[-1]
-            if angle < -45:
-                angle = -(90 + angle)
-            else:
-                angle = -angle
-            (h, w) = img.shape[:2]
-            M = cv2.getRotationMatrix2D((w // 2, h // 2), angle, 1.0)
-            img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        
+        img = cv2.GaussianBlur(img, (5, 5), 0)
 
         _, thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
@@ -143,7 +135,7 @@ def extract_fields(file_path, modelo="hologramas"):
             else:
                 logging.warning("⚠️ El PDF no tiene texto extraíble, usando OCR con imágenes...")
 
-            img = page.to_image(resolution=150).original
+            img = page.to_image(resolution=300).original
             width, height = img.size
             logging.info(f"📐 Tamaño de imagen: {width}x{height} px")
 
