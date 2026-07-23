@@ -20,12 +20,10 @@ def preprocess_image(pil_img):
 
         denoised = cv2.medianBlur(thresh, 3)
 
-        kernel = np.array([[0, -1, 0],
-                            [-1, 5, -1],
-                            [0, -1, 0]])
+        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
         sharpened = cv2.filter2D(denoised, -1, kernel)
-        return Image.fromarray(sharpened)
 
+        return Image.fromarray(sharpened)
     except Exception as e:
         logging.error(f"Error en el preprocesamiento de la imagen: {e}")
         return pil_img  # Devolver la imagen original si hay error
@@ -168,11 +166,7 @@ def extract_fields(file_path, modelo="hologramas"):
                     # Preprocesar la imagen
                     crop = preprocess_image(crop)
 
-                    text_ocr = pytesseract.image_to_string(
-                        crop, 
-                        lang="spa",
-                        config="--psm 6"  # Asume bloque de texto uniforme
-                    )
+                    text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 8")
 
                     results[field] = text_ocr.strip()
                     logging.warning(f"OCR {field}: {results[field]}")
