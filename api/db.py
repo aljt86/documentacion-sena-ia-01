@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # 🔹 Usa la variable de entorno DATABASE_URL
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL =  DATABASE_URL = "postgresql://postgres:Alejo_1986@localhost:5432/documentos_sena_ia3_db"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
