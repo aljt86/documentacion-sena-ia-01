@@ -58,14 +58,14 @@ zones_digital = {
 # ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS
 # ============================================
 zones_hologramas = {
-    "numero_documento": (0.10, 0.30, 0.60, 0.45),
-    "apellidos": (0.10, 0.50, 0.60, 0.60),
-    "nombres": (0.10, 0.62, 0.60, 0.72),
+    "numero_documento": (0.15, 0.30, 0.50, 0.38),
+    "apellidos": (0.15, 0.48, 0.55, 0.55),
+    "nombres": (0.15, 0.58, 0.55, 0.65),
     "fecha_nacimiento": (0.05, 0.78, 0.45, 0.85),
-    "lugar_nacimiento": (0.50, 0.78, 0.85, 0.85),
+    "lugar_nacimiento": (0.45, 0.78, 0.85, 0.85),
     "sexo": (0.75, 0.85, 0.90, 0.90),
     "tipo_sangre": (0.05, 0.88, 0.20, 0.93),
-    "nacionalidad": (0.50, 0.10, 0.80, 0.18),
+    "nacionalidad": (0.45, 0.10, 0.80, 0.18),
 }
 
 # ============================================
@@ -206,10 +206,3 @@ def extract_fields(file_path, modelo="hologramas"):
         return {}
 
     return results
-
-
-                
-
-
-            
-   
