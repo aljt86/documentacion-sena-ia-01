@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr, root_validator
 from utils import extraer_texto, detectar_tipo_documento, validar_datos
 from app.ocr import procesar_pdf
 
@@ -42,11 +42,29 @@ Base.metadata.create_all(bind=engine)
 # ============================================
 app = FastAPI(title="OCR Documentos Identidad 2.0")
 
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
+
+allow_origin_regex = os.getenv(
+    "CORS_ORIGIN_REGEX",
+    r"https://.*\.onrender\.com|http://localhost(:\d+)?|http://127\.0\.0\.1(:\d+)?",
+)
+
+# Si se necesita abrir a cualquier frontend en un despliegue de prueba,
+# puede utilizar CORS_ALLOW_ALL=true y la app responderá dinámicamente a todos los orígenes.
+allow_all_origins = os.getenv("CORS_ALLOW_ALL", "false").lower() in {"1", "true", "yes"}
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://sna-2-0-3.onrender.com"],
-    allow_credentials=True,
+    allow_origins=["*"] if allow_all_origins else cors_origins,
+    allow_origin_regex=None if allow_all_origins else allow_origin_regex,
+    allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -149,10 +167,23 @@ async def ocr_upload(
 # REGISTRO DE USUARIOS
 # ============================================
 class UserRegister(BaseModel):
-    nombre: str
-    email: str
+    nombre: str | None = Field(None, alias="name")
+    apellido: str | None = Field(None, alias="lastName")
+    email: EmailStr
     password: str
-    apellido: str | None = None
+
+    @root_validator(pre=True)
+    def normalize_fields(cls, values):
+        # Acepta payloads del frontend con name/lastName o nombre/apellido
+        if "name" in values and "nombre" not in values:
+            values["nombre"] = values.pop("name")
+        if "lastName" in values and "apellido" not in values:
+            values["apellido"] = values.pop("lastName")
+        return values
+
+    class Config:
+        allow_population_by_field_name = True
+        extra = "ignore"
 
 @app.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
@@ -163,8 +194,8 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="El correo ya está registrado")
         
         nuevo = Usuario(
-            Nombre=user.nombre,
-            Apellido=user.apellido if user.apellido else "",
+            Nombre=user.nombre or "",
+            Apellido=user.apellido or "",
             Email=user.email,
             Password=hash_password(user.password),
             ConteoIngresos=0
