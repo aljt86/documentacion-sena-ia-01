@@ -1,47 +1,43 @@
+# main.py
 import sys
 import os
 import logging
-import bcrypt
 from datetime import datetime
+from typing import Optional
+
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, EmailStr, root_validator
+from dotenv import load_dotenv
+from passlib.context import CryptContext
+
+# cargar .env
+load_dotenv()
+
+# módulos del proyecto (ajusta rutas si es necesario)
+from app.ocr_template import extract_fields
 from utils import extraer_texto, detectar_tipo_documento, validar_datos
 from app.ocr import procesar_pdf
 
+# asegurar que el path al paquete api esté en sys.path si ejecutas desde la raíz del repo
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from api.db import engine, Base, get_db
-from api.models import Usuario, Documento 
-from app.ocr_template import extract_fields
+from api.db import engine, Base, get_db, SessionLocal
+from api.models import Usuario, Documento
 
-# ============================================
-# CONFIGURACIÓN DE LOGGING
-# ============================================
+# logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# ============================================
-# HASH DE CONTRASEÑAS (bcrypt directo)
-# ============================================
-def hash_password(password: str) -> str:
-    password_bytes = password.encode('utf-8')[:72]
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed.decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    password_bytes = plain_password.encode('utf-8')[:72]
-    hashed_bytes = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
-
+# crear tablas (solo en desarrollo; en producción usa Alembic)
 Base.metadata.create_all(bind=engine)
 
-# ============================================
-# APLICACIÓN FASTAPI
-# ============================================
+# FastAPI app
 app = FastAPI(title="OCR Documentos Identidad 2.0")
 
+# CORS
+allow_all_origins = os.getenv("CORS_ALLOW_ALL", "false").lower() in {"1", "true", "yes"}
 cors_origins = [
     origin.strip()
     for origin in os.getenv(
@@ -50,15 +46,10 @@ cors_origins = [
     ).split(",")
     if origin.strip()
 ]
-
 allow_origin_regex = os.getenv(
     "CORS_ORIGIN_REGEX",
-    r"https://.*\.onrender\.com|http://localhost(:\d+)?|http://127\.0\.0\.1(:\d+)?",
+    r"https://*\.onrender\.com|http://localhost(:\d+)?|http://127\.0\.0\.1(:\d+)?",
 )
-
-# Si se necesita abrir a cualquier frontend en un despliegue de prueba,
-# puede utilizar CORS_ALLOW_ALL=true y la app responderá dinámicamente a todos los orígenes.
-allow_all_origins = os.getenv("CORS_ALLOW_ALL", "false").lower() in {"1", "true", "yes"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,32 +60,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
 @app.get("/")
 def home():
     return {"mensaje": "API OCR 2.0 funcionando correctamente"}
 
-# ============================================
-# FUNCIÓN DE OCR EN SEGUNDO PLANO
-# ============================================
-def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int, db: Session):
+
+# Background OCR processing: crea su propia sesión DB
+def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int):
     """
-    Función que se ejecuta en segundo plano para procesar el OCR.
+    Procesa OCR en background. Crea su propia sesión DB para evitar usar
+    la sesión del request (que puede cerrarse).
     """
+    db = SessionLocal()
     try:
-        logging.info(f"📂 Procesando OCR para: {file_path}")
-        
-        # Extraer datos del PDF
+        logger.info(f"Procesando OCR para: {file_path}")
         datos = extract_fields(file_path, modelo="hologramas")
-        logging.info(f"🔍 Datos extraídos: {datos}")
-        
-        # Construir nombre completo
-        nombre_completo = datos.get("nombre_completo", "")
-        if not nombre_completo:
-            apellidos = datos.get("apellidos", "")
-            nombres = datos.get("nombres", "")
-            nombre_completo = f"{apellidos} {nombres}".strip()
-        
-        # Guardar en la base de datos
+        logger.info(f"Datos extraídos: {datos}")
+
+        nombre_completo = datos.get("nombre_completo") or f"{datos.get('apellidos','')} {datos.get('nombres','')}".strip()
+
         nuevo_doc = Documento(
             UsuarioId=usuario_id,
             NumeroDocumento=datos.get("numero_documento", ""),
@@ -106,75 +102,31 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
             TipoSangre=datos.get("tipo_sangre", ""),
             Programa=programa
         )
+        # si tu modelo tiene FilePath, puedes asignarlo aquí antes de add()
         db.add(nuevo_doc)
         db.commit()
         db.refresh(nuevo_doc)
-        
-        logging.info(f"✅ Documento guardado en BD con ID: {nuevo_doc.Id}")
-        
+        logger.info(f"Documento guardado en BD con ID: {nuevo_doc.Id}")
     except Exception as e:
-        logging.error(f"❌ Error en OCR en segundo plano: {e}")
-        db.rollback()
+        logger.error(f"Error en OCR en segundo plano: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            logger.exception("Error al hacer rollback en la sesión de background")
+    finally:
+        db.close()
 
-# ============================================
-# OCR UPLOAD (PROCESAMIENTO ASÍNCRONO)
-# ============================================
-@app.post("/ocr/upload/")
-async def ocr_upload(
-    file: UploadFile = File(...),
-    programa: str = Form(...),
-    modelo: str = Form("hologramas"),
-    usuario_id: int = Form(...), 
-    db: Session = Depends(get_db),
-    background_tasks: BackgroundTasks = BackgroundTasks()
-):
-    """
-    Endpoint para subir documentos.
-    - Guarda el archivo inmediatamente.
-    - Devuelve confirmación al frontend.
-    - Procesa el OCR en segundo plano.
-    """
-    try:
-        # 1. Guardar el archivo en disco
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
-        os.makedirs(programa_dir, exist_ok=True)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{usuario_id}_{timestamp}_{file.filename}"
-        file_path = os.path.join(programa_dir, filename)
-        
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
-        
-        logging.info(f"📂 Archivo guardado en: {file_path}")
-        
-        # 2. Agregar el OCR a tarea en segundo plano
-        background_tasks.add_task(procesar_ocr_en_segundo_plano, file_path, programa, usuario_id, db)
-        
-        # 3. Devolver confirmación INMEDIATA
-        return {
-            "mensaje": "Documento recibido y guardado correctamente. El procesamiento continuará en segundo plano.",
-            "archivo": file_path,
-            "status": "processing"
-        }
-        
-    except Exception as e:
-        logging.error(f"❌ Error al subir documento: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al subir documento: {str(e)}")
 
-# ============================================
-# REGISTRO DE USUARIOS
-# ============================================
+# Pydantic models para registro/login
 class UserRegister(BaseModel):
-    nombre: str | None = Field(None, alias="name")
-    apellido: str | None = Field(None, alias="lastName")
+    nombre: Optional[str] = Field(None, alias="name")
+    apellido: Optional[str] = Field(None, alias="lastName")
     email: EmailStr
     password: str
 
     @root_validator(pre=True)
     def normalize_fields(cls, values):
-        # Acepta payloads del frontend con name/lastName o nombre/apellido
+        # Acepta payloads con name/lastName o nombre/apellido
         if "name" in values and "nombre" not in values:
             values["nombre"] = values.pop("name")
         if "lastName" in values and "apellido" not in values:
@@ -185,14 +137,21 @@ class UserRegister(BaseModel):
         allow_population_by_field_name = True
         extra = "ignore"
 
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+# Registro
 @app.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    logging.info(f"📝 Registro intentado para: {user.email}")
+    logger.info(f"Registro intentado para: {user.email}")
     try:
         existing = db.query(Usuario).filter(Usuario.Email == user.email).first()
         if existing:
             raise HTTPException(status_code=400, detail="El correo ya está registrado")
-        
+
         nuevo = Usuario(
             Nombre=user.nombre or "",
             Apellido=user.apellido or "",
@@ -203,38 +162,34 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         db.add(nuevo)
         db.commit()
         db.refresh(nuevo)
-        logging.info(f"✅ Usuario registrado: ID {nuevo.Id}, Email {nuevo.Email}")
+        logger.info(f"Usuario registrado: ID {nuevo.Id}, Email {nuevo.Email}")
         return {"mensaje": "Usuario registrado correctamente", "usuario_id": nuevo.Id}
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"❌ Error en registro: {str(e)}")
+        logger.error(f"Error en registro: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
-# ============================================
-# LOGIN DE USUARIOS
-# ============================================
-class UserLogin(BaseModel):
-    email: str
-    password: str
 
+# Login
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    logging.info(f"🔐 Login intentado: {user.email}")
+    logger.info(f"Login intentado: {user.email}")
     try:
         usuario = db.query(Usuario).filter(Usuario.Email == user.email).first()
         if not usuario:
-            logging.warning(f"⚠️ Usuario no encontrado: {user.email}")
+            logger.warning(f"Usuario no encontrado: {user.email}")
             raise HTTPException(status_code=401, detail="Credenciales inválidas")
-        
+
         if not verify_password(user.password, usuario.Password):
-            logging.warning(f"⚠️ Contraseña incorrecta para: {user.email}")
+            logger.warning(f"Contraseña incorrecta para: {user.email}")
             raise HTTPException(status_code=401, detail="Credenciales inválidas")
-        
-        usuario.ConteoIngresos += 1
+
+        usuario.ConteoIngresos = (usuario.ConteoIngresos or 0) + 1
         db.commit()
         db.refresh(usuario)
-        
+
+        # En producción genera un JWT; aquí devolvemos token de prueba
         token = f"fake-token-{usuario.Id}"
         return {
             "mensaje": "Login exitoso",
@@ -245,6 +200,49 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"❌ Error en login: {str(e)}")
+        logger.error(f"Error en login: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
+
+# Subir documento (multipart/form-data). Guarda archivo localmente en dev y lanza OCR en background.
+@app.post("/ocr/upload/")
+async def ocr_upload(
+    file: UploadFile = File(...),
+    programa: str = Form(...),
+    modelo: str = Form("hologramas"),
+    usuario_id: int = Form(...),
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None
+):
+    try:
+        # validar usuario
+        usuario = db.query(Usuario).filter(Usuario.Id == usuario_id).first()
+        if not usuario:
+            raise HTTPException(status_code=400, detail="Usuario no existe")
+
+        # Guardar archivo local (solo para desarrollo)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
+        os.makedirs(programa_dir, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{usuario_id}_{timestamp}_{file.filename}"
+        file_path = os.path.join(programa_dir, filename)
+
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        logger.info(f"Archivo guardado en: {file_path}")
+
+        # Agregar tarea en background (no pasar db)
+        if background_tasks is not None:
+            background_tasks.add_task(procesar_ocr_en_segundo_plano, file_path, programa, usuario_id)
+
+        return {
+            "mensaje": "Documento recibido y guardado correctamente. El procesamiento continuará en segundo plano.",
+            "archivo": file_path,
+            "status": "processing"
+        }
+    except Exception as e:
+        logger.error(f"Error al subir documento: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al subir documento: {str(e)}")
