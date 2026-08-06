@@ -3,6 +3,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 import os
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def build_database_url(raw_url: str | None) -> str:
@@ -37,7 +41,7 @@ Base = declarative_base()
 try:
     Base.metadata.create_all(bind=engine)
 except Exception as exc:
-    print(f"Advertencia: no se pudieron crear las tablas automáticamente: {exc}")
+    logger.warning(f"Advertencia: no se pudieron crear las tablas automáticamente: {exc}")
 
 def get_db():
     db = SessionLocal()
