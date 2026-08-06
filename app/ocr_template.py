@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 # ============================================
 # PREPROCESAMIENTO DE IMÁGENES
 # ============================================
-def preprocess_image(pil_img):
+def preprocesa_image(pil_img):
     """
     Preprocesa la imagen para mejorar la precisión del OCR.
     Optimizado para documentos escaneados de baja calidad.
@@ -22,13 +22,13 @@ def preprocess_image(pil_img):
     try:
         # Convertir a escala de grises
         img = np.array(pil_img.convert("L"))
-
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        img = clahe.apply(img)
-
+        
         # Ecualización de histograma (mejora contraste en imágenes oscuras)
-        img = cv2.GaussianBlur(img, (3, 3), 0)
-                       
+        img = cv2.equalizeHist(img)
+        
+        # Reducción de ruido con filtro bilateral (conserva bordes)
+        img = cv2.bilateralFilter(img, 9, 75, 75)
+        
         # Umbralización adaptativa (mejor para diferentes condiciones de luz)
         thresh = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
         
@@ -58,10 +58,10 @@ zones_digital = {
 # ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS
 # ============================================
 zones_hologramas = {
-    "numero_documento": (0.15, 0.30, 0.50, 0.38),
-    "apellidos": (0.15, 0.48, 0.55, 0.55),
-    "nombres": (0.15, 0.58, 0.55, 0.65),
-    "fecha_nacimiento": (0.05, 0.78, 0.45, 0.85),
+    "numero_documento": (0.10, 0.30, 0.60, 0.45),
+    "apellidos": (0.10, 0.48, 0.60, 0.58),
+    "nombres": (0.10, 0.60, 0.60, 0.70),
+    "fecha_nacimiento": (0.05, 0.78, 0.40, 0.85),
     "lugar_nacimiento": (0.45, 0.78, 0.85, 0.85),
     "sexo": (0.75, 0.85, 0.90, 0.90),
     "tipo_sangre": (0.05, 0.88, 0.20, 0.93),
@@ -185,7 +185,7 @@ def extract_fields(file_path, modelo="hologramas"):
                     crop = img.crop(box)
 
                     # Preprocesar la imagen
-                    crop = preprocess_image(crop)
+                    crop = preprocesa_image(crop)
 
                     # Aplicar OCR con Tesseract
                     text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 7 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")

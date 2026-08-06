@@ -19,7 +19,7 @@ class Documento(Base):
 
     UsuarioId = Column(Integer, ForeignKey("usuarios.Id"), nullable=False)
     
-    NumeroDocumento = Column(String, unique=True, index=True)
+    NumeroDocumento = Column(String, index=True)
     NombreCompleto = Column(String)
     FechaNacimiento = Column(String)
     Sexo = Column(String)
