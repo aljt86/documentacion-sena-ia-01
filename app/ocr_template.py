@@ -59,14 +59,14 @@ zones_digital = {
 # ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS
 # ============================================
 zones_hologramas = {
-    "numero_documento": (0.10, 0.30, 0.60, 0.45),
-    "apellidos": (0.10, 0.48, 0.60, 0.58),
-    "nombres": (0.10, 0.60, 0.60, 0.70),
-    "fecha_nacimiento": (0.05, 0.78, 0.40, 0.85),
-    "lugar_nacimiento": (0.45, 0.78, 0.85, 0.85),
-    "sexo": (0.75, 0.85, 0.90, 0.90),
-    "tipo_sangre": (0.05, 0.88, 0.20, 0.93),
-    "nacionalidad": (0.45, 0.10, 0.80, 0.18),
+    "numero_documento": (0.05, 0.10, 0.40, 0.25),    # Número no visible, pero puede estar en otra zona
+    "apellidos": (0.05, 0.45, 0.60, 0.55),           # Apellidos (parte media izquierda)
+    "nombres": (0.05, 0.55, 0.60, 0.65),             # Nombres
+    "fecha_nacimiento": (0.05, 0.15, 0.40, 0.25),    # Fecha de nacimiento
+    "lugar_nacimiento": (0.45, 0.15, 0.80, 0.25),    # Lugar de nacimiento
+    "sexo": (0.80, 0.25, 0.95, 0.35),                # Sexo (M/F)
+    "tipo_sangre": (0.15, 0.25, 0.35, 0.35),         # RH (O+, A+, etc.)
+    "nacionalidad": (0.05, 0.60, 0.40, 0.70),        # Nacionalidad (si aparece)
 }
 
 # ============================================
