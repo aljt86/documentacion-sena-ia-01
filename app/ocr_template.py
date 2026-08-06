@@ -22,14 +22,15 @@ def preprocesa_image(pil_img):
     try:
         # Convertir a escala de grises
         img = np.array(pil_img.convert("L"))
-        
+
         # Ecualización de histograma (mejora contraste en imágenes oscuras)
-        img = cv2.equalizeHist(img)
-        
-        # Reducción de ruido con filtro bilateral (conserva bordes)
-        img = cv2.bilateralFilter(img, 9, 75, 75)
-        
-        # Umbralización adaptativa (mejor para diferentes condiciones de luz)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        img = clahe.apply(img)
+
+        # Reducir ruido con un filtro gaussiano
+        img = cv2.GaussianBlur(img, (3, 3), 0)
+    
+        # Umbralización adaptativa (mejor para diferenres condiciones de luz)         
         thresh = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
         
         # Eliminar ruido pequeño con operaciones morfológicas
@@ -188,7 +189,7 @@ def extract_fields(file_path, modelo="hologramas"):
                     crop = preprocesa_image(crop)
 
                     # Aplicar OCR con Tesseract
-                    text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 7 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+                    text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3")
 
                     results[field] = text_ocr.strip()
                     logging.warning(f"OCR {field}: {results[field]}")
