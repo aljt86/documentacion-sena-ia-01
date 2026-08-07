@@ -1,6 +1,7 @@
 import pdfplumber
 import pytesseract
 from PIL import Image
+from app.parser import limpiar_numero, limpiar_texto, limpiar_fecha
 import cv2
 import numpy as np
 import logging
