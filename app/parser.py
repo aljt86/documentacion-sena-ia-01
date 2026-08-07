@@ -53,6 +53,27 @@ def normalizar(texto: str) -> str:
         texto = texto.replace(k,v)
     return texto.upper()
 
+# ------------------ Limpieza ------------------
+
+def limpiar_numero(texto: str) -> str | None:
+    if not texto:
+        return None
+    digits = re.sub(r"\D", "", texto)
+    return digits if digits else None
+
+def limpiar_texto(texto: str) -> str | None:
+    if not texto:
+        return None
+    return re.sub(r"[^A-Za-zÁÉÍÓÚÑ ]", "", texto).strip()
+
+def limpiar_fecha(texto: str) -> str | None:
+    if not texto:
+        return None
+    match = re.search(r"\d{2}[-/][A-Za-z]{3}[-/]\d{4}|\d{2}/\d{2}/\d{4}", texto)
+    return match.group(0) if match else None
+
+# ------------------ Extracción ------------------
+
 def extraer_campos_por_lineas(texto: str):
     datos = {
         "nombre_completo": None,

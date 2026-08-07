@@ -121,6 +121,14 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         datos = extract_fields(file_path, modelo="hologramas")
         logger.info(f"📊 Datos extraídos: {datos}")
 
+            # Validar duplicado por NumeroDocumento
+        numero_doc = datos.get("numero_documento", "")
+        if numero_doc:
+            existing = db.query(Documento).filter(Documento.NumeroDocumento == numero_doc).first()
+            if existing:
+                logger.warning(f"⚠️ Documento duplicado detectado: {numero_doc}")
+                return
+
         nombre_completo = datos.get("nombre_completo") or f"{datos.get('apellidos','')} {datos.get('nombres','')}".strip()
 
         nuevo_doc = Documento(
