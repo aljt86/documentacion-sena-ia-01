@@ -190,8 +190,20 @@ def extract_fields(file_path, modelo="hologramas"):
 
                     # Aplicar OCR con Tesseract
                     text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3")
-
                     results[field] = text_ocr.strip()
+                    if field == "numero_documento":
+                        clean_value = limpiar_numero(raw_value)
+                    elif field == "fecha_nacimiento":
+                        clean_value = limpiar_fecha(raw_value)
+                    elif field in ["apellidos", "nombres", "nombre_completo", "lugar_nacimiento", "nacionalidad", "tipo_sangre"]:
+                        clean_value = limpiar_texto(raw_value)
+                    elif field == "sexo":
+                        clean_value = "Masculino" if raw_value.upper().startswith("M") else "Femenino" if raw_value.upper().startswith("F") else ""
+                    else:
+                        clean_value = raw_value
+                    results[field] = clean_value
+                    logging.info(f"OCR {field} crudo: {raw_value} → limpio: {clean_value}")
+
                     logging.warning(f"OCR {field}: {results[field]}")
 
                 except Exception as e:
