@@ -192,6 +192,9 @@ def extract_fields(file_path, modelo="hologramas"):
                     # Aplicar OCR con Tesseract
                     text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3")
                     results[field] = text_ocr.strip()
+
+                    logging.info("OCR raw for %s (box=%s): %s", field, box, raw_value)
+
                     if field == "numero_documento":
                         clean_value = limpiar_numero(raw_value)
                     elif field == "fecha_nacimiento":
@@ -199,14 +202,24 @@ def extract_fields(file_path, modelo="hologramas"):
                     elif field in ["apellidos", "nombres", "nombre_completo", "lugar_nacimiento", "nacionalidad", "tipo_sangre"]:
                         clean_value = limpiar_texto(raw_value)
                     elif field == "sexo":
-                        clean_value = "Masculino" if raw_value.upper().startswith("M") else "Femenino" if raw_value.upper().startswith("F") else ""
+                        rv = raw_value.upper()
+                        if rv.startswith("M"):
+                            clean_value = "Masculino"
+                        elif rv.startswith("F"):
+                            clean_value = "Femenino"
+                        else:
+                            clean_value = ""                        
                     else:
                         clean_value = raw_value
+
+                    if field == "numero_documento" and not (clean_value is None or clean_value == ""):
+                        logging.warning("NumeroDocumento invalido o vacio para box %s - marcar para revisión", box)
+                        clean_value = ""
+
                     results[field] = clean_value
                     logging.info(f"OCR {field} crudo: {raw_value} → limpio: {clean_value}")
-
                     logging.warning(f"OCR {field}: {results[field]}")
-
+                    
                 except Exception as e:
                     logging.error(f"❌ Error al procesar '{field}': {e}")
                     results[field] = ""
