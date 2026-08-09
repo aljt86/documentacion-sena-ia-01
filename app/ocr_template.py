@@ -193,7 +193,7 @@ def extract_fields(file_path, modelo="hologramas"):
                     text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3")
                     raw_value = (text_ocr or "").strip()
                     
-                    logging.info("OCR raw for %s: %r", field, box, raw_value)
+                    logging.info("OCR raw for %s: %r", field, raw_value)
 
                     if field == "numero_documento":
                         clean_value = limpiar_numero(raw_value)
