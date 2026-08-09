@@ -191,8 +191,7 @@ def extract_fields(file_path, modelo="hologramas"):
 
                     # Aplicar OCR con Tesseract
                     text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3")
-                    raw_value = (text_ocr or "").strip()
-                    
+                    raw_value = (text_ocr or "").strip()                    
                     logging.info("OCR raw for %s: %r", field, raw_value)
 
                     if field == "numero_documento":
@@ -217,9 +216,8 @@ def extract_fields(file_path, modelo="hologramas"):
                         clean_value = ""
 
                     results[field] = clean_value
-                    logging.info(f"OCR {field} crudo: {raw_value} → limpio: {clean_value}")
-                    logging.warning(f"OCR {field}: {results[field]}")
-                    
+                    logging.info("OCR %s crudo: %r → limpio: %r", field, raw_value, clean_value)
+
                 except Exception as e:
                     logging.error(f"❌ Error al procesar '{field}': {e}")
                     results[field] = ""
