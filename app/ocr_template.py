@@ -191,8 +191,8 @@ def extract_fields(file_path, modelo="hologramas"):
 
                     # Aplicar OCR con Tesseract
                     text_ocr = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3")
-                    results[field] = text_ocr.strip()
-
+                    raw_value = (text_ocr or "").strip()
+                    
                     logging.info("OCR raw for %s (box=%s): %s", field, box, raw_value)
 
                     if field == "numero_documento":
