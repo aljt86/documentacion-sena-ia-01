@@ -127,6 +127,19 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         if numero_doc:
             existing = db.query(Documento).filter(Documento.NumeroDocumento == numero_doc).first()
             if existing:
+                # actualizar en vez de ignorar
+                existing.NombreCompleto = nombre_completo
+                existing.FechaNacimiento = datos.get("fecha_nacimiento", "")
+                existing.Sexo = datos.get("sexo", "")
+                existing.LugarNacimiento = datos.get("lugar_nacimiento", "")
+                existing.Nacionalidad = datos.get("nacionalidad", "")
+                existing.TipoSangre = datos.get("tipo_sangre", "")
+                existing.Programa = programa
+                db.commit()
+                db.refresh(existing)
+                logger.info(f"🔄 Documento actualizado en BD con ID: {existing.Id}")
+                return
+
                 logger.warning(f"⚠️ Documento duplicado detectado: {numero_doc}")
                 return
 
