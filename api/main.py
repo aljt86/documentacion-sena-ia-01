@@ -123,27 +123,25 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         logger.info(f"📊 Datos extraídos: {datos}")
 
             # Validar duplicado por NumeroDocumento
-        numero_doc = datos.get("numero_documento", "")
-        if numero_doc:
-            existing = db.query(Documento).filter(Documento.NumeroDocumento == numero_doc).first()
-            if existing:
-                # actualizar en vez de ignorar
-                existing.NombreCompleto = nombre_completo
-                existing.FechaNacimiento = datos.get("fecha_nacimiento", "")
-                existing.Sexo = datos.get("sexo", "")
-                existing.LugarNacimiento = datos.get("lugar_nacimiento", "")
-                existing.Nacionalidad = datos.get("nacionalidad", "")
-                existing.TipoSangre = datos.get("tipo_sangre", "")
-                existing.Programa = programa
-                db.commit()
-                db.refresh(existing)
-                logger.info(f"🔄 Documento actualizado en BD con ID: {existing.Id}")
-                return
+        numero_doc = datos.get("numero_documento", "").strip()
+        if not numero_doc:
+            logger.warning("⚠️ OCR no capturó número de documento, no se insertará en BD")
+            return  # aquí puedes guardar en tabla de pendientes si quieres
 
-                logger.warning(f"⚠️ Documento duplicado detectado: {numero_doc}")
-                return
-
-        nombre_completo = datos.get("nombre_completo") or f"{datos.get('apellidos','')} {datos.get('nombres','')}".strip()
+        existing = db.query(Documento).filter(Documento.NumeroDocumento == numero_doc).first()
+        if existing:
+             # actualizar en vez de ignorar
+            existing.NombreCompleto = nombre_completo
+            existing.FechaNacimiento = datos.get("fecha_nacimiento", "")
+            existing.Sexo = datos.get("sexo", "")
+            existing.LugarNacimiento = datos.get("lugar_nacimiento", "")
+            existing.Nacionalidad = datos.get("nacionalidad", "")
+            existing.TipoSangre = datos.get("tipo_sangre", "")
+            existing.Programa = programa
+            db.commit()
+            db.refresh(existing)
+            logger.info(f"🔄 Documento actualizado en BD con ID: {existing.Id}")
+            return
 
         nuevo_doc = Documento(
             UsuarioId=usuario_id,
