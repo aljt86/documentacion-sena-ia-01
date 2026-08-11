@@ -67,8 +67,15 @@ def procesar_pdf_hibrido(file_path: str):
         # Si no hubo texto embebido, usar OCR con data
         if not datos["numero_documento"]:
             img = pdf.pages[0].to_image(resolution=300).original
-            gray = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
-            data = pytesseract.image_to_data(gray, lang="spa", config="--psm 6", output_type=Output.DICT)
+            img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
+
+            # Procesamiento para baja calidad
+            img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+            img = cv2.fastNlMeansDenoising(img, None, 30, 7, 21)
+            kermel = np.array([[0, -1, 0], [-1, 5,-1], [0, -1, 0]])
+            gray = cv2.filter2D(img, -1, kermel)
+
+            data = pytesseract.image_to_data(img, lang="spa", config="--psm 6", output_type=Output.DICT)
             texto_total = " ".join(data["text"])
 
             doc_match = re.search(r"\d{6,15}", texto_total)
