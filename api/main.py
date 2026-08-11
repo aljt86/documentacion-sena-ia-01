@@ -127,6 +127,9 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         if not numero_doc:
             logger.warning("⚠️ OCR no capturó número de documento, no se insertará en BD")
             return  # aquí puedes guardar en tabla de pendientes si quieres
+        
+         # Construir nombre completo de forma segura
+        nombre_completo = datos.get("nombre_completo") or f"{datos.get('apellidos','')} {datos.get('nombres','')}".strip()
 
         existing = db.query(Documento).filter(Documento.NumeroDocumento == numero_doc).first()
         if existing:
