@@ -160,10 +160,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         logger.info(f"✅ Documento guardado en BD con ID: {nuevo_doc.Id}")
     except Exception as e:
         logger.error(f"❌ Error en OCR en segundo plano: {e}")
-        try:
-            db.rollback()
-        except Exception:
-            logger.exception("Error al hacer rollback en la sesión de background")
+        db.rollback()
     finally:
         db.close()
 
