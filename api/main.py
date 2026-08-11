@@ -11,6 +11,7 @@ from sqlalchemy import text
 from pydantic import BaseModel, Field, EmailStr, root_validator
 from dotenv import load_dotenv
 from passlib.context import CryptContext
+from app.extractor import procesar_pdf_hibrido
 
 # cargar .env
 load_dotenv()
@@ -118,7 +119,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
     db = SessionLocal()
     try:
         logger.info(f"🔍 Procesando OCR para: {file_path}")
-        datos = extract_fields(file_path, modelo="hologramas")
+        datos = procesar_pdf_hibrido(file_path)
         logger.info(f"📊 Datos extraídos: {datos}")
 
             # Validar duplicado por NumeroDocumento
