@@ -25,7 +25,7 @@ from app.ocr import procesar_pdf
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.db import engine, Base, get_db, SessionLocal
-from api.models import Usuario, Documento
+from api.models import Usuario, Documento, Estudiante 
 
 # ============================================
 # CONFIGURACIÓN DE LOGGING
@@ -37,31 +37,6 @@ logger = logging.getLogger(__name__)
 # CREAR TABLAS (si no existen)
 # ============================================
 Base.metadata.create_all(bind=engine)
-
-# ============================================
-# VERIFICAR Y AGREGAR COLUMNA UsuarioId SI NO EXISTE
-# ============================================
-try:
-    with engine.connect() as conn:
-        # Verificar si la columna UsuarioId existe en la tabla documentos
-        result = conn.execute(text(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'documentos' AND column_name = 'UsuarioId'"
-        ))
-        if not result.fetchone():
-            logger.warning("⚠️ Columna UsuarioId no encontrada en 'documentos'. Agregando...")
-            conn.execute(text('ALTER TABLE documentos ADD COLUMN "UsuarioId" INTEGER'))
-            conn.execute(text('ALTER TABLE documentos ALTER COLUMN "UsuarioId" SET NOT NULL'))
-            conn.execute(text(
-                'ALTER TABLE documentos ADD CONSTRAINT fk_documentos_usuarios '
-                'FOREIGN KEY ("UsuarioId") REFERENCES usuarios("Id")'
-            ))
-            conn.commit()
-            logger.info("✅ Columna UsuarioId agregada correctamente")
-        else:
-            logger.info("✅ Columna UsuarioId ya existe en 'documentos'")
-except Exception as e:
-    logger.error(f"⚠️ Error al verificar/agregar UsuarioId: {e}")
 
 # ============================================
 # APLICACIÓN FASTAPI
