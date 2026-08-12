@@ -11,7 +11,7 @@ from sqlalchemy import text
 from pydantic import BaseModel, Field, EmailStr, root_validator
 from dotenv import load_dotenv
 from passlib.context import CryptContext
-from app.extractor import procesar_pdf_hibrido
+# from app.extractor import procesar_pdf_hibrido #
 
 # cargar .env
 load_dotenv()
@@ -19,7 +19,7 @@ load_dotenv()
 # módulos del proyecto
 from app.ocr_template import extract_fields
 from utils import extraer_texto, detectar_tipo_documento, validar_datos
-from app.ocr import procesar_pdf
+# from app.ocr import procesar_pdf # 
 
 # asegurar que el path al paquete api esté en sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,6 +37,24 @@ logger = logging.getLogger(__name__)
 # CREAR TABLAS (si no existen)
 # ============================================
 Base.metadata.create_all(bind=engine)
+
+# ============================================
+# ELIMINAR RESTRICCIÓN ÚNICA SI EXISTE
+# ============================================
+try:
+    with engine.connect() as conn:
+        result = conn.execute(text(
+            "SELECT constraint_name FROM information_schema.table_constraints "
+            "WHERE table_name = 'documentos' AND constraint_name = 'ix_documentos_NumeroDocumento'"
+        ))
+        if result.fetchone():
+            conn.execute(text('ALTER TABLE documentos DROP CONSTRAINT ix_documentos_NumeroDocumento'))
+            conn.commit()
+            logger.info("✅ Restricción ix_documentos_NumeroDocumento eliminada")
+        else:
+            logger.info("✅ Restricción ix_documentos_NumeroDocumento no existe")
+except Exception as e:
+    logger.error(f"⚠️ Error al eliminar restricción: {e}")
 
 # ============================================
 # APLICACIÓN FASTAPI
