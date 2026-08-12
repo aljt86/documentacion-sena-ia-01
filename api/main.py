@@ -122,50 +122,62 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         datos = procesar_pdf_hibrido(file_path)
         logger.info(f"📊 Datos extraídos: {datos}")
 
-            # Validar duplicado por NumeroDocumento
         numero_doc = datos.get("numero_documento", "").strip()
         if not numero_doc:
             logger.warning("⚠️ OCR no capturó número de documento, no se insertará en BD")
-            return  # aquí puedes guardar en tabla de pendientes si quieres
-        
-         # Construir nombre completo de forma segura
-        nombre_completo = datos.get("nombre_completo") or f"{datos.get('apellidos','')} {datos.get('nombres','')}".strip()
-
-        existing = db.query(Documento).filter(Documento.NumeroDocumento == numero_doc).first()
-        if existing:
-             # actualizar en vez de ignorar
-            existing.NombreCompleto = nombre_completo
-            existing.FechaNacimiento = datos.get("fecha_nacimiento", "")
-            existing.Sexo = datos.get("sexo", "")
-            existing.LugarNacimiento = datos.get("lugar_nacimiento", "")
-            existing.Nacionalidad = datos.get("nacionalidad", "")
-            existing.TipoSangre = datos.get("tipo_sangre", "")
-            existing.Programa = programa
-            db.commit()
-            db.refresh(existing)
-            logger.info(f"🔄 Documento actualizado en BD con ID: {existing.Id}")
             return
 
+        nombre_completo = datos.get("nombre_completo") or f"{datos.get('apellidos','')} {datos.get('nombres','')}".strip()
+
+        # Buscar estudiante existente
+        estudiante = db.query(Estudiante).filter(Estudiante.NumeroDocumento == numero_doc).first()
+        if estudiante:
+            estudiante.NombreCompleto = nombre_completo
+            estudiante.FechaNacimiento = datos.get("fecha_nacimiento", "")
+            estudiante.Sexo = datos.get("sexo", "")
+            estudiante.LugarNacimiento = datos.get("lugar_nacimiento", "")
+            estudiante.Nacionalidad = datos.get("nacionalidad", "")
+            estudiante.TipoSangre = datos.get("tipo_sangre", "")
+            estudiante.Programa = programa
+            db.commit()
+            db.refresh(estudiante)
+            logger.info(f"🔄 Estudiante actualizado en BD con ID: {estudiante.Id}")
+        else:
+            estudiante = Estudiante(
+                NumeroDocumento=numero_doc,
+                NombreCompleto=nombre_completo,
+                FechaNacimiento=datos.get("fecha_nacimiento", ""),
+                Sexo=datos.get("sexo", ""),
+                LugarNacimiento=datos.get("lugar_nacimiento", ""),
+                Nacionalidad=datos.get("nacionalidad", ""),
+                TipoSangre=datos.get("tipo_sangre", ""),
+                Programa=programa,
+                UsuarioId=usuario_id
+            )
+            db.add(estudiante)
+            db.commit()
+            db.refresh(estudiante)
+            logger.info(f"✅ Estudiante guardado en BD con ID: {estudiante.Id}")
+
+        # Crear documento asociado
         nuevo_doc = Documento(
+            EstudianteId=estudiante.Id,
+            ProgramaId=estudiante.ProgramaId if hasattr(estudiante, "ProgramaId") else 1,  # ajusta según tu lógica
             UsuarioId=usuario_id,
-            NumeroDocumento=datos.get("numero_documento", ""),
-            NombreCompleto=nombre_completo,
-            FechaNacimiento=datos.get("fecha_nacimiento", ""),
-            Sexo=datos.get("sexo", ""),
-            LugarNacimiento=datos.get("lugar_nacimiento", ""),
-            Nacionalidad=datos.get("nacionalidad", ""),
-            TipoSangre=datos.get("tipo_sangre", ""),
-            Programa=programa
+            TipoDocumento="PDF",
+            Archivo=file_path
         )
         db.add(nuevo_doc)
         db.commit()
         db.refresh(nuevo_doc)
         logger.info(f"✅ Documento guardado en BD con ID: {nuevo_doc.Id}")
+
     except Exception as e:
         logger.error(f"❌ Error en OCR en segundo plano: {e}")
         db.rollback()
     finally:
         db.close()
+
 
 # ============================================
 # MODELOS PYDANTIC PARA REGISTRO Y LOGIN
