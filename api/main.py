@@ -112,7 +112,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
     db = SessionLocal()
     try:
         logger.info(f"🔍 Procesando OCR para: {file_path}")
-        datos = procesar_pdf_hibrido(file_path)
+        datos = extract_fields(file_path, modelo="hologramas")
         logger.info(f"📊 Datos extraídos: {datos}")
 
         numero_doc = datos.get("numero_documento", "").strip()
