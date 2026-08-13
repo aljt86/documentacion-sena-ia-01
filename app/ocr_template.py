@@ -6,6 +6,7 @@ import numpy as np
 import logging
 import re
 
+
 # ============================================
 # CONFIGURACIÓN DE LOGGING
 # ============================================
@@ -201,6 +202,10 @@ def extract_fields(file_path, modelo="hologramas"):
                 try:
                     crop = img.crop(box)
                     crop = preprocess_image(crop)
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    crop.save(f"/tmp/crop_{field}_{timestamp}.png")
+                    logger.info(f"🖼️ Imagen recortada guardada: /tmp/crop_{field}_{timestamp}.png")
                     raw = pytesseract.image_to_string(crop, lang="spa", config="--psm 7 --oem 3").strip()
                     logger.info(f"OCR raw para {field}: {raw!r}")
                     

@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel, Field, EmailStr, root_validator
@@ -302,3 +303,25 @@ async def ocr_upload(
     except Exception as e:
         logger.error(f"❌ Error al subir documento: {e}")
         raise HTTPException(status_code=500, detail=f"Error al subir documento: {str(e)}")
+
+        # ============================================
+# ENDPOINTS DE DEBUG (temporales)
+# ============================================
+import os
+from fastapi.responses import FileResponse
+
+@app.get("/debug/images")
+def list_debug_images():
+    try:
+        files = os.listdir("/tmp")
+        pngs = sorted([f for f in files if f.startswith("crop_") and f.endswith(".png")])
+        return {"images": pngs}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/debug/image/{filename}")
+def get_debug_image(filename: str):
+    file_path = f"/tmp/{filename}"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/png", filename=filename)
+    return {"error": "Imagen no encontrada"}
