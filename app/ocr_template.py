@@ -28,21 +28,31 @@ def detectar_y_recortar_cedula(imagen):
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     
     # Detectar bordes con Canny
-    edges = cv2.Canny(blurred, 50, 150)
+    edges = cv2.Canny(blurred, 30, 100)
     
     # Encontrar contornos
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     # Buscar el contorno más grande (la cédula)
     if contours:
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)
-        largest_contour = contours[0]
+        min_area = 1000
+        large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > min_area]
+        large_contours = sorted(large_contours, key=cv2.contourArea, reverse=True)
+        largest_contour = large_contours[0]
         x, y, w, h = cv2.boundingRect(largest_contour)
-        cedula_recortada = imagen[y:y+h, x:x+w]
-        return cedula_recortada
-    else:
-        return imagen
+        margin = 10
+        x = max(0, x - margin)
+        y = max(0, y - margin)
+        w = min(imagen.shape[1] - x, w + 2 * margin)
+        h = min(imagen.shape[0] - y, h + 2 * margin)
 
+        cedula_recortada = imagen[y:y+h, x:x+w]
+        logger.info(f"📐 Cédula recortada: {w}x{h} px")
+        return cedula_recortada
+
+logger.warning("⚠️ No se detectaron contornos grandes, devolviendo imagen original.")
+return imagen
+    
 # ============================================
 # FUNCIONES DE LIMPIEZA (integradas)
 # ============================================
