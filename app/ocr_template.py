@@ -5,13 +5,43 @@ import cv2
 import numpy as np
 import logging
 import re
-
+from datetime import datetime
 
 # ============================================
 # CONFIGURACIÓN DE LOGGING
 # ============================================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# ============================================
+# DETECCIÓN DE BORDES Y RECORTE DE CÉDULA
+# ============================================
+def detectar_y_recortar_cedula(imagen):
+    """
+    Detecta los bordes de la cédula dentro de una imagen (hoja tamaño carta)
+    y devuelve la cédula recortada.
+    """
+    # Convertir a escala de grises
+    gray = cv2.cvtColor(imagen, cv2.COLOR_RGB2GRAY)
+    
+    # Aplicar desenfoque para reducir ruido
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Detectar bordes con Canny
+    edges = cv2.Canny(blurred, 50, 150)
+    
+    # Encontrar contornos
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Buscar el contorno más grande (la cédula)
+    if contours:
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)
+        largest_contour = contours[0]
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        cedula_recortada = imagen[y:y+h, x:x+w]
+        return cedula_recortada
+    else:
+        return imagen
 
 # ============================================
 # FUNCIONES DE LIMPIEZA (integradas)
@@ -85,14 +115,14 @@ def preprocess_image(pil_img):
 # ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS (MODELO VIEJO)
 # ============================================
 zones_hologramas = {
-    "numero_documento": (0.05, 0.05, 0.50, 0.20),    # Número (arriba izquierda)
-    "apellidos": (0.05, 0.25, 0.55, 0.40),           # Apellidos
-    "nombres": (0.05, 0.45, 0.55, 0.60),             # Nombres
-    "fecha_nacimiento": (0.15, 0.10, 0.55, 0.25),    # Fecha (parte superior derecha)
-    "lugar_nacimiento": (0.45, 0.10, 0.80, 0.25),    # Lugar (junto a fecha)
-    "sexo": (0.70, 0.20, 0.90, 0.30),                # Sexo (M)
-    "tipo_sangre": (0.60, 0.20, 0.80, 0.30),         # RH (O+)
-    "nacionalidad": (0.45, 0.10, 0.80, 0.18),        # Nacionalidad
+    "numero_documento": (0.05, 0.05, 0.50, 0.20),
+    "apellidos": (0.05, 0.25, 0.55, 0.40),
+    "nombres": (0.05, 0.45, 0.55, 0.60),
+    "fecha_nacimiento": (0.15, 0.10, 0.55, 0.25),
+    "lugar_nacimiento": (0.45, 0.10, 0.80, 0.25),
+    "sexo": (0.70, 0.20, 0.90, 0.30),
+    "tipo_sangre": (0.60, 0.20, 0.80, 0.30),
+    "nacionalidad": (0.45, 0.10, 0.80, 0.18),
 }
 
 # ============================================
@@ -114,13 +144,10 @@ zones_digital = {
 def extract_fields_from_text(text):
     """Extrae datos usando regex cuando el PDF tiene texto digital."""
     results = {}
-    # Número de documento
     match = re.search(r'(\d{6,15})', text)
     results['numero_documento'] = match.group(1) if match else ""
-    # Nombre completo
     match = re.search(r'(?:NOMBRE|NOMBRES?)\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)', text, re.IGNORECASE)
     results['nombre_completo'] = limpiar_texto(match.group(1).strip()) if match else ""
-    # Apellidos y nombres (fallback)
     if not results['nombre_completo']:
         match = re.search(r'(?:APELLIDOS?)\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)', text, re.IGNORECASE)
         if match:
@@ -128,19 +155,14 @@ def extract_fields_from_text(text):
         match = re.search(r'(?:NOMBRES?)\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)', text, re.IGNORECASE)
         if match:
             results['nombres'] = limpiar_texto(match.group(1).strip())
-    # Fecha de nacimiento
     match = re.search(r'(\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{4})', text)
     results['fecha_nacimiento'] = match.group(1) if match else ""
-    # Sexo
     match = re.search(r'(SEXO|GENERO)\s*:?\s*([MF])', text, re.IGNORECASE)
     results['sexo'] = match.group(2) if match else ""
-    # Lugar de nacimiento
     match = re.search(r'(?:LUGAR|CIUDAD)\s*(?:DE)?\s*NACIMIENTO\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)', text, re.IGNORECASE)
     results['lugar_nacimiento'] = limpiar_texto(match.group(1).strip()) if match else ""
-    # Nacionalidad
     match = re.search(r'(NACIONALIDAD)\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)', text, re.IGNORECASE)
     results['nacionalidad'] = limpiar_texto(match.group(2).strip()) if match else ""
-    # Tipo de sangre
     match = re.search(r'(TIPO\s*(?:DE)?\s*SANGRE|RH)\s*:?\s*([A-Z0-9+-]+)', text, re.IGNORECASE)
     results['tipo_sangre'] = match.group(2) if match else ""
     return results
@@ -169,7 +191,6 @@ def extract_fields(file_path, modelo="hologramas"):
             page = pdf.pages[0]
             text = page.extract_text() or ""
             
-            # 1. Intentar extraer texto digital (válido para ambos formatos si el PDF tiene texto)
             if text.strip():
                 results = extract_fields_from_text(text)
                 if any(results.values()):
@@ -180,21 +201,20 @@ def extract_fields(file_path, modelo="hologramas"):
             else:
                 logger.warning("⚠️ El PDF no tiene texto extraíble, usando OCR...")
             
-            # 2. Usar OCR con imágenes (si no hay texto o no se encontraron datos)
+            # ✅ Obtener la imagen original
             img = page.to_image(resolution=300).original
-            width, height = img.size
-            logger.info(f"📐 Imagen: {width}x{height} px")
             
-            # Seleccionar zonas según el modelo
-            if modelo == "digital":
-                zones = zones_digital
-                logger.info("🔍 Usando zonas para cédula DIGITAL (policarbonato)")
-            else:
-                zones = zones_hologramas
-                logger.info("🔍 Usando zonas para cédula HOLOGRAMA (amarilla)")
+            # ✅ DETECTAR Y RECORTAR LA CÉDULA (si está dentro de una hoja)
+            img_np = np.array(img)
+            cedula_np = detectar_y_recortar_cedula(img_np)
+            img = Image.fromarray(cedula_np)
+            
+            width, height = img.size
+            logger.info(f"📐 Imagen recortada (cédula): {width}x{height} px")
+            
+            zones = zones_hologramas if modelo == "hologramas" else zones_digital
             
             for field, (x1, y1, x2, y2) in zones.items():
-                # Normalizar coordenadas
                 x1, x2 = min(x1, x2), max(x1, x2)
                 y1, y2 = min(y1, y2), max(y1, y2)
                 box = (int(x1 * width), int(y1 * height), int(x2 * width), int(y2 * height))
@@ -202,14 +222,14 @@ def extract_fields(file_path, modelo="hologramas"):
                 try:
                     crop = img.crop(box)
                     crop = preprocess_image(crop)
-                    from datetime import datetime
+                    
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     crop.save(f"/tmp/crop_{field}_{timestamp}.png")
                     logger.info(f"🖼️ Imagen recortada guardada: /tmp/crop_{field}_{timestamp}.png")
+                    
                     raw = pytesseract.image_to_string(crop, lang="spa", config="--psm 7 --oem 3").strip()
                     logger.info(f"OCR raw para {field}: {raw!r}")
                     
-                    # Limpiar según el campo
                     if field == "numero_documento":
                         clean = limpiar_numero(raw)
                     elif field == "fecha_nacimiento":
@@ -221,7 +241,6 @@ def extract_fields(file_path, modelo="hologramas"):
                     else:
                         clean = raw
                     
-                    # Si el número de documento está vacío, dejar vacío (no marcar error)
                     if field == "numero_documento" and not clean:
                         logger.warning("⚠️ Número de documento vacío para box %s", box)
                         clean = ""
