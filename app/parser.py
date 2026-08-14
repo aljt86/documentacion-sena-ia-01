@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import re
 from datetime import datetime
+from PIL import Image
 
 # Configuración de Tesseract y Poppler para entornos Windows y Docker/Linux
 TESSERACT_CMD = os.getenv("TESSERACT_CMD")
@@ -15,6 +16,25 @@ elif os.name == "nt":
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 poppler_path = os.getenv("POPPLER_PATH")
+
+def detectar_y_recortar_cedula(imagen):
+    """
+    Detecta los bordes de la cédula dentro de una imagen (hoja tamaño carta)
+    y devuelve la cédula recortada.
+    """
+    gray = cv2.cvtColor(imagen, cv2.COLOR_RGB2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    edges = cv2.Canny(blurred, 50, 150)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if contours:
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)
+        largest_contour = contours[0]
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        cedula_recortada = imagen[y:y+h, x:x+w]
+        return cedula_recortada
+    else:
+        return imagen
 
 def calcular_edad(fecha_str: str):
     meses = {"ENE":"Jan","FEB":"Feb","MAR":"Mar","ABR":"Apr","MAY":"May","JUN":"Jun",
@@ -90,12 +110,10 @@ def extraer_campos_por_lineas(texto: str):
     lineas = texto.splitlines()
     tipo_doc = "desconocido"
 
-    # patrones de encabezado
     encabezados = {"REPUBLICA","REPUBLICA DE COLOMBIA","COLOMBIA","IDENTIFICACION",
                    "IDENTIFICACIÓN","IDENTIFICACIÓN PERSONAL","CEDULA DE CIUDADANÍA",
                    "CEDULA DE CIUDADANIA","CEDULA"}
 
-    # eliminar encabezados iniciales
     n = 0
     while n < 3 and lineas:
         primera = normalizar(lineas[0].strip()).upper()
@@ -108,32 +126,27 @@ def extraer_campos_por_lineas(texto: str):
     for i, linea in enumerate(lineas):
         l = normalizar(linea.strip())
 
-        # Detectar tipo de documento
         if "NUIP" in l:
             tipo_doc = "nueva"
         if re.search(r"(APELLIDOS?|NOMBRES?)", l):
             tipo_doc = "antigua"
 
-        # Documento
         if re.search(r"NUMER[O0]", l) and i+1 < len(lineas):
             datos["numero_documento"] = re.sub(r"\D", "", lineas[i+1].strip())
         if "NUIP" in l and i+1 < len(lineas):
             datos["numero_documento"] = re.sub(r"\D", "", lineas[i+1].strip())
 
-        # Fecha nacimiento
         if "FECHA DE NACIMIENTO" in l and i+1 < len(lineas):
             fnac = lineas[i+1].strip()
             datos["fecha_nacimiento"] = fnac
             datos["edad"] = calcular_edad(fnac)
 
-        # Lugar nacimiento
         if "LUGAR DE NACIMIENTO" in l and i-2 >= 0 and i-1 >= 0:
             ciudad = lineas[i-2].strip()
             depto = lineas[i-1].strip()
             lugar = f"{ciudad} {depto}".replace("!", "P")
             datos["lugar_nacimiento"] = lugar
 
-        # Sexo
         if "SEXO" in l and i+1 < len(lineas):
             sexo = lineas[i+1].strip().upper()
             if sexo.startswith("M"):
@@ -141,11 +154,9 @@ def extraer_campos_por_lineas(texto: str):
             elif sexo.startswith("F"):
                 datos["sexo"] = "Femenino"
 
-        # Fecha expedición
         if "EXPEDICION" in l and i-1 >= 0:
             datos["fecha_expedicion"] = lineas[i-1].strip()
 
-        # Antigua: apellidos y nombres (línea anterior)
         if tipo_doc == "antigua":
             apellidos, nombres = "", ""
             if re.search(r"APELLIDOS?", l) and i-1 >= 0:
@@ -155,7 +166,6 @@ def extraer_campos_por_lineas(texto: str):
             if nombres or apellidos:
                 datos["nombre_completo"] = f"{nombres} {apellidos}".strip()
 
-        # Nueva: apellidos y nombres (línea siguiente)
         if tipo_doc == "nueva":
             apellidos, nombres = "", ""
             if re.search(r"APELLIDOS?", l) and i+1 < len(lineas):
@@ -165,7 +175,6 @@ def extraer_campos_por_lineas(texto: str):
             if nombres or apellidos:
                 datos["nombre_completo"] = f"{nombres} {apellidos}".strip()
 
-        # RH
         if "RH" in l and i-1 >= 0:
             rh_line = lineas[i-1].strip()
             rh_match = re.search(r"\b[OAB][+-]\b", rh_line)
@@ -178,7 +187,6 @@ def extraer_campos_por_lineas(texto: str):
             if re.search(r"\b[OAB][+-]\b", l):
                 datos["rh"] = l.strip()
 
-    # --- Fallback adicional ---
     if not datos["numero_documento"]:
         doc_match = re.findall(r"\d{8,10}", texto)
         if doc_match:
@@ -211,7 +219,8 @@ def procesar_documento(pdf_path):
         try:
             paginas = convert_from_path(pdf_path, poppler_path=poppler_path)
             for pagina in paginas:
-                texto_total += ocr_pagina(pagina) + "\n"
+                cedula = detectar_y_recortar_cedula(np.array(pagina))
+                texto_total += ocr_pagina(Image.fromarray(cedula)) + "\n"
 
             with open("ocr_debug.txt", "w", encoding="utf-8") as f:
                 f.write(texto_total)
@@ -225,6 +234,5 @@ def procesar_documento(pdf_path):
 
     return {"resultado": datos}
 
-# Wrapper para compatibilidad
 def extraer_campos(texto: str):
     return extraer_campos_por_lineas(texto)
