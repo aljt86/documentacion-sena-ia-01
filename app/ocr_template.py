@@ -118,14 +118,14 @@ def preprocesa_image(pil_img):
 # ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS (MODELO VIEJO) - COORDENADAS ORIGINALES
 # ============================================
 zones_hologramas = {
-    "numero_documento": (0.05, 0.10, 0.40, 0.25),
-    "apellidos": (0.05, 0.45, 0.60, 0.55),
-    "nombres": (0.05, 0.55, 0.60, 0.65),
-    "fecha_nacimiento": (0.05, 0.15, 0.40, 0.25),
-    "lugar_nacimiento": (0.45, 0.15, 0.80, 0.25),
-    "sexo": (0.80, 0.25, 0.95, 0.35),
-    "tipo_sangre": (0.15, 0.25, 0.35, 0.35),
-    "nacionalidad": (0.05, 0.60, 0.40, 0.70),
+    "numero_documento": (0.05, 0.30, 0.45, 0.45),    # Número (parte superior izquierda)
+    "apellidos": (0.05, 0.48, 0.55, 0.58),           # Apellidos (debajo del número)
+    "nombres": (0.05, 0.60, 0.55, 0.70),             # Nombres (debajo de apellidos)
+    "fecha_nacimiento": (0.05, 0.78, 0.40, 0.85),    # Fecha de nacimiento (parte inferior izquierda)
+    "lugar_nacimiento": (0.45, 0.78, 0.85, 0.85),    # Lugar de nacimiento (parte inferior derecha)
+    "sexo": (0.75, 0.85, 0.90, 0.90),                # Sexo (debajo de lugar)
+    "tipo_sangre": (0.05, 0.88, 0.20, 0.93),         # RH (debajo de fecha)
+    "nacionalidad": (0.45, 0.10, 0.80, 0.18),        # Nacionalidad (parte superior derecha)
 }
 
 # ============================================
