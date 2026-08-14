@@ -85,14 +85,14 @@ def preprocess_image(pil_img):
 # ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS (MODELO VIEJO)
 # ============================================
 zones_hologramas = {
-    "numero_documento": (0.047, 0.315, 0.471, 0.370),
-    "apellidos": (0.047, 0.370, 0.471, 0.426),
-    "nombres": (0.047, 0.519, 0.471, 0.556),
-    "fecha_nacimiento": (0.388, 0.093, 0.859, 0.167),
-    "lugar_nacimiento": (0.388, 0.148, 0.635, 0.296),
-    "tipo_sangre": (0.576, 0.296, 0.647, 0.426),
-    "sexo": (0.741, 0.296, 0.812, 0.426),
-    "nacionalidad": (0.45, 0.10, 0.80, 0.18),  # Mantengo este valor porque no lo mediste
+    "numero_documento": (0.10, 0.05, 0.50, 0.20),    # Número en la parte superior (NUMERO 1.061.686.689)
+    "apellidos": (0.10, 0.30, 0.60, 0.45),           # Apellidos (IBARRA CIFUENTES)
+    "nombres": (0.10, 0.50, 0.60, 0.65),             # Nombres (HEMBERT ALEJANDRO)
+    "fecha_nacimiento": (0.15, 0.10, 0.55, 0.25),    # Fecha (22-FEB-1986)
+    "lugar_nacimiento": (0.45, 0.10, 0.80, 0.25),    # Lugar (POPAYAN (CAUCA))
+    "sexo": (0.70, 0.20, 0.90, 0.30),                # Sexo (M)
+    "tipo_sangre": (0.60, 0.20, 0.80, 0.30),         # RH (O+)
+    "nacionalidad": (0.45, 0.10, 0.80, 0.18),        # (mantener)
 }
 
 # ============================================
