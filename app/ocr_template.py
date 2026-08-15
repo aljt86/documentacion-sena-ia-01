@@ -115,17 +115,20 @@ def preprocesa_image(pil_img):
         return pil_img
 
 # ============================================
-# ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS (MODELO VIEJO) - COORDENADAS ORIGINALES
+# ZONAS PARA CÉDULA AMARILLA CON HOLOGRAMAS (MODELO VIEJO) - COORDENADAS AJUSTADAS
 # ============================================
-zones_hologramas = {
-    "numero_documento": (0.04, 0.17, 0.45, 0.34),    # Número (parte superior izquierda)
-    "apellidos": (0.04, 0.45, 0.20, 0.31),           # Apellidos (debajo del número)
-    "nombres": (0.04, 0.28, 0.45, 0.24),             # Nombres (debajo de apellidos)
-    "fecha_nacimiento": (0.33, 0.05, 0.12, 0.45),    # Fecha de nacimiento (parte inferior izquierda)
-    "lugar_nacimiento": (0.33, 0.08, 0.31, 0.38),    # Lugar de nacimiento (parte inferior derecha)
-    "sexo": (0.63, 0.16, 0.16, 0.31),                # Sexo (debajo de lugar)
-    "tipo_sangre": (0.49, 0.16, 0.30, 0.31),         # RH (debajo de fecha)
-    "nacionalidad": (0.45, 0.10, 0.80, 0.18),        # Nacionalidad (parte superior derecha)
+zones_hologramas_anverso = {
+    "numero_documento": (0.04, 0.17, 0.45, 0.34),
+    "apellidos": (0.04, 0.45, 0.55, 0.58),
+    "nombres": (0.04, 0.60, 0.55, 0.72),
+}
+
+zones_hologramas_reverso = {
+    "fecha_nacimiento": (0.05, 0.10, 0.45, 0.25),
+    "lugar_nacimiento": (0.45, 0.10, 0.85, 0.25),
+    "sexo": (0.70, 0.25, 0.90, 0.35),
+    "tipo_sangre": (0.55, 0.25, 0.75, 0.35),
+    "nacionalidad": (0.45, 0.02, 0.80, 0.10),
 }
 
 # ============================================
@@ -171,7 +174,7 @@ def extract_fields_from_text(text):
     return results
 
 # ============================================
-# FUNCIÓN PRINCIPAL (SOPORTA AMBOS FORMATOS)
+# FUNCIÓN PRINCIPAL (SOPORTA AMBOS FORMATOS Y ANVERSO/REVERSO)
 # ============================================
 def extract_fields(file_path, modelo="hologramas"):
     results = {}
@@ -180,73 +183,84 @@ def extract_fields(file_path, modelo="hologramas"):
             if len(pdf.pages) == 0:
                 logger.error("El PDF no contiene páginas.")
                 return {}
-            page = pdf.pages[0]
-            text = page.extract_text() or ""
-
-            if text.strip():
-                results = extract_fields_from_text(text)
-                if any(results.values()):
-                    logger.info("✅ Datos extraídos del texto del PDF")
-                    return results
+            
+            # ✅ Procesar todas las páginas (anverso y reverso)
+            for idx, page in enumerate(pdf.pages):
+                # Solo procesamos las dos primeras páginas
+                if idx >= 2:
+                    break
+                    
+                text = page.extract_text() or ""
+                
+                # Intentar extraer texto si existe
+                if text.strip():
+                    results.update(extract_fields_from_text(text))
+                    if any(results.values()):
+                        logger.info(f"✅ Datos extraídos del texto del PDF (página {idx+1})")
+                        continue
+                
+                logger.warning(f"⚠️ Usando OCR con imágenes para página {idx+1}...")
+                img = page.to_image(resolution=300).original
+                img_np = np.array(img)
+                cedula_np = detectar_y_recortar_cedula(img_np)
+                img = Image.fromarray(cedula_np)
+                
+                width, height = img.size
+                logger.info(f"📐 Imagen recortada (cédula) página {idx+1}: {width}x{height} px")
+                
+                # ✅ Seleccionar zonas según la página (anverso o reverso)
+                if idx == 0:
+                    # ANVERSO: número, apellidos, nombres
+                    zones = zones_hologramas_anverso
+                    logger.info("🔍 Usando zonas para ANVERSO (página 1)")
                 else:
-                    logger.warning("⚠️ El texto no contenía datos válidos, usando OCR...")
-            else:
-                logger.warning("⚠️ El PDF no tiene texto extraíble, usando OCR...")
-
-            img = page.to_image(resolution=300).original
-
-            # ✅ DETECTAR Y RECORTAR LA CÉDULA
-            img_np = np.array(img)
-            cedula_np = detectar_y_recortar_cedula(img_np)
-            img = Image.fromarray(cedula_np)
-
-            width, height = img.size
-            logger.info(f"📐 Imagen recortada (cédula): {width}x{height} px")
-
-            zones = zones_hologramas if modelo == "hologramas" else zones_digital
-
-            for field, (x1, y1, x2, y2) in zones.items():
-                x1, x2 = min(x1, x2), max(x1, x2)
-                y1, y2 = min(y1, y2), max(y1, y2)
-                box = (int(x1 * width), int(y1 * height), int(x2 * width), int(y2 * height))
-
-                try:
-                    crop = img.crop(box)
-                    crop = preprocesa_image(crop)
-
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    crop.save(f"/tmp/crop_{field}_{timestamp}.png")
-                    logger.info(f"🖼️ Imagen recortada guardada: /tmp/crop_{field}_{timestamp}.png")
-
-                    raw = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3").strip()
-                    logger.info(f"OCR raw para {field}: {raw!r}")
-
-                    # Limpiar según el campo
-                    if field == "numero_documento":
-                        clean = limpiar_numero(raw)
-                    elif field == "fecha_nacimiento":
-                        clean = limpiar_fecha(raw)
-                    elif field in ("apellidos", "nombres", "nombre_completo", "lugar_nacimiento", "nacionalidad", "tipo_sangre"):
-                        clean = limpiar_texto(raw)
-                    elif field == "sexo":
-                        clean = limpiar_sexo(raw)
-                    else:
-                        clean = raw
-
-                    # Permitir que el campo esté vacío (None) sin marcar error
-                    if field == "numero_documento" and not clean:
-                        logger.warning("⚠️ Número de documento vacío para box %s", box)
-                        clean = ""
-
-                    results[field] = clean
-                    logger.info(f"✅ {field}: {raw!r} → {clean!r}")
-
-                except Exception as e:
-                    logger.error(f"❌ Error en campo {field}: {e}")
-                    results[field] = None
-
+                    # REVERSO: fecha, lugar, sexo, RH
+                    zones = zones_hologramas_reverso
+                    logger.info("🔍 Usando zonas para REVERSO (página 2)")
+                
+                for field, (x1, y1, x2, y2) in zones.items():
+                    # Si ya tenemos el campo, no sobrescribir
+                    if field in results and results[field]:
+                        continue
+                    
+                    x1, x2 = min(x1, x2), max(x1, x2)
+                    y1, y2 = min(y1, y2), max(y1, y2)
+                    box = (int(x1 * width), int(y1 * height), int(x2 * width), int(y2 * height))
+                    
+                    try:
+                        crop = img.crop(box)
+                        crop = preprocesa_image(crop)
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        crop.save(f"/tmp/crop_{field}_{timestamp}.png")
+                        logger.info(f"🖼️ Imagen recortada guardada: /tmp/crop_{field}_{timestamp}.png")
+                        
+                        raw = pytesseract.image_to_string(crop, lang="spa", config="--psm 8 --oem 3").strip()
+                        logger.info(f"OCR raw para {field}: {raw!r}")
+                        
+                        if field == "numero_documento":
+                            clean = limpiar_numero(raw)
+                        elif field == "fecha_nacimiento":
+                            clean = limpiar_fecha(raw)
+                        elif field in ("apellidos", "nombres", "nombre_completo", "lugar_nacimiento", "nacionalidad", "tipo_sangre"):
+                            clean = limpiar_texto(raw)
+                        elif field == "sexo":
+                            clean = limpiar_sexo(raw)
+                        else:
+                            clean = raw
+                        
+                        if field == "numero_documento" and not clean:
+                            logger.warning("⚠️ Número de documento vacío para box %s", box)
+                            clean = ""
+                        
+                        results[field] = clean
+                        logger.info(f"✅ {field}: {raw!r} → {clean!r}")
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Error en campo {field}: {e}")
+                        results[field] = None
+    
     except Exception as e:
         logger.error(f"❌ Error en extract_fields: {e}")
         return {}
-
+    
     return results
