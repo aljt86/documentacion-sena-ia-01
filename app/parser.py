@@ -9,6 +9,8 @@ import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
 
+logger = logging.getlogger(__name__)
+
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
