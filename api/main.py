@@ -212,13 +212,13 @@ class UserRegister(BaseModel):
            values["apellido"] = values.pop("lastName")
        return values
 
-    class Config:
-       allow_population_by_field_name = True
-       extra = "ignore"
+class Config:
+    allow_population_by_field_name = True
+    extra = "ignore"
 
-    class UserLogin(BaseModel):
-        email: EmailStr
-        password: str
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
 
 # ============================================
 # ENDPOINT: REGISTRO
