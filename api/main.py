@@ -294,20 +294,20 @@ async def ocr_upload(
     usuario_id: int = Form(...),
     db: Session = Depends(get_db),
    ):
-        try:
-            # Validar usuario
-            usuario = db.query(Usuario).filter(Usuario.Id == usuario_id).first()
-            if not usuario:
-                raise HTTPException(status_code=400, detail="Usuario no existe")
+    try:
+        # Validar usuario
+        usuario = db.query(Usuario).filter(Usuario.Id == usuario_id).first()
+        if not usuario:
+            raise HTTPException(status_code=400, detail="Usuario no existe")
 
        # Guardar archivo en disco
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
-            os.makedirs(programa_dir, exist_ok=True)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
+        os.makedirs(programa_dir, exist_ok=True)
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{usuario_id}_{timestamp}_{file.filename}"
-            file_path = os.path.join(programa_dir, filename)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{usuario_id}_{timestamp}_{file.filename}"
+        file_path = os.path.join(programa_dir, filename)
 
         with open(file_path, "wb") as f:
            f.write(await file.read())
