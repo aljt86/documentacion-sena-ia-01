@@ -287,13 +287,13 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 # ============================================
 @app.post("/ocr/upload/")
 async def ocr_upload(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     programa: str = Form(...),
     modelo: str = Form("hologramas"),
     usuario_id: int = Form(...),
     db: Session = Depends(get_db),
-    background_tasks: BackgroundTasks
-    ):
+   ):
         try:
             # Validar usuario
             usuario = db.query(Usuario).filter(Usuario.Id == usuario_id).first()
