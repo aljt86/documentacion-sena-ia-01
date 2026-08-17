@@ -1,15 +1,15 @@
 import os
-import re
-from datetime import datetime
-
-import cv2
-import numpy as np
+import logging
 import pdfplumber
 import pytesseract
 from pdf2image import convert_from_path
+import cv2
+import numpy as np
+import re
+from datetime import datetime
 from PIL import Image
 
-logger = logging.getlogger(__name__)
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # CONFIGURACIÓN
