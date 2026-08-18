@@ -10,6 +10,8 @@ from PIL import Image
 
 from app.parser import detectar_y_recortar_cedula
 
+logger = logging.getLogger(__name__)
+
 # ============================================================
 # PLANTILLA NORMALIZADA
 # ============================================================
