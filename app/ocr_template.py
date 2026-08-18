@@ -376,7 +376,7 @@ def extract_fields(file_path, modelo="hologramas"):
                     metadata["detected"],
                     metadata["method"],
                     metadata["score"],
-                    metadata["aspect"],
+                    metadata.get("aspect"),
                     metadata["normalized_size"],
                 )
 
