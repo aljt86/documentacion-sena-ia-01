@@ -115,6 +115,55 @@ def home():
     return {"mensaje": "API OCR 2.0 funcionando correctamente"}
 
 # ============================================
+# ENDPOINT: DESCARGAR CROPS DEL OCR
+# ============================================
+@app.get("/ocr/debug/{programa}/{filename}")
+def descargar_crop(programa: str, filename: str):
+    """
+    Permite acceder directamente desde el navegador
+    a los crops generados por el OCR.
+
+    Ejemplo:
+    /ocr/debug/desarrollador_software/pagina_01_apellidos_original.png
+    """
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    debug_dir = os.path.join(
+        base_dir,
+        "documentos",
+        programa,
+        "ocr_debug"
+    )
+
+    file_path = os.path.join(debug_dir, filename)
+
+    # Seguridad: impedir salir de la carpeta ocr_debug
+    debug_real = os.path.realpath(debug_dir)
+    file_real = os.path.realpath(file_path)
+
+    if not file_real.startswith(debug_real + os.sep):
+        raise HTTPException(
+            status_code=403,
+            detail="Ruta no permitida"
+        )
+
+    if not os.path.isfile(file_real):
+        raise HTTPException(
+            status_code=404,
+            detail="Crop no encontrado"
+        )
+
+    return FileResponse(
+        file_real,
+        media_type="image/png",
+        filename=os.path.basename(file_real),
+        headers={
+            "Content-Disposition": f'attachment; filename="{os.path.basename(file_real)}"'
+        }
+    )
+
+# ============================================
 # BACKGROUND OCR (crea su propia sesiГіn DB)
 # ============================================
 def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int):

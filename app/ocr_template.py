@@ -1,6 +1,6 @@
-import os
 import logging
 import re
+import os
 from datetime import datetime
 
 import cv2
@@ -14,6 +14,42 @@ from app.parser import detectar_y_recortar_cedula
 
 logger = logging.getLogger(__name__)
 
+# ============================================================
+# URL PÚBLICA PARA CROPS DE DEBUG
+# ============================================================
+
+def _obtener_url_crop(file_path):
+    """
+    Convierte la ruta interna del crop en una URL pública
+    accesible desde Render.
+
+    Render proporciona RENDER_EXTERNAL_URL automáticamente.
+    También permite definir PUBLIC_BASE_URL manualmente.
+    """
+
+    base_url = (
+        os.getenv("PUBLIC_BASE_URL")
+        or os.getenv("RENDER_EXTERNAL_URL")
+        or ""
+    ).rstrip("/")
+
+    if not base_url:
+        return None
+
+    # Normalizar separadores de Windows/Linux
+    normalized = file_path.replace("\\", "/")
+
+    marcador = "/documentos/"
+
+    if marcador not in normalized:
+        return None
+
+    parte = normalized.split(marcador, 1)[1]
+
+    # parte:
+    # desarrollador_software/ocr_debug/pagina_01_apellidos_original.png
+
+    return f"{base_url}/ocr/debug/{parte}"
 
 # ============================================================
 # PLANTILLA NORMALIZADA
@@ -331,13 +367,22 @@ def guardar_crop_debug(
 
         crop.save(path)
 
+        url = _obtener_url_crop(path)
+
         logger.info(
-            "OCR_CROP_GUARDADO | "
-            "pagina=%s | campo=%s | archivo=%s",
+            "OCR_CROP_GUARDADO | pagina=%s | campo=%s | archivo=%s",
             page_number,
             field,
             path
         )
+
+        if url:
+            logger.info(
+                "OCR_CROP_URL | pagina=%s | campo=%s | url=%s",
+                page_number,
+                field,
+                url
+            )
 
         return path
 
