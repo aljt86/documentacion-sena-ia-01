@@ -18,13 +18,19 @@ logger = logging.getLogger(__name__)
 # URL PÚBLICA PARA CROPS DE DEBUG
 # ============================================================
 
+# ============================================================
+# URL PÚBLICA PARA CROPS DE DEBUG
+# ============================================================
+
 def _obtener_url_crop(file_path):
     """
-    Convierte la ruta interna del crop en una URL pública
-    accesible desde Render.
+    Convierte la ruta física del crop en una URL pública.
 
-    Render proporciona RENDER_EXTERNAL_URL automáticamente.
-    También permite definir PUBLIC_BASE_URL manualmente.
+    Ejemplo de archivo:
+        /app/api/documentos/desarrollador_software/ocr_debug/pagina_01_nombres_ocr.png
+
+    URL generada:
+        https://TU-DOMINIO/ocr/debug/desarrollador_software/ocr_debug/pagina_01_nombres_ocr.png
     """
 
     base_url = (
@@ -34,22 +40,37 @@ def _obtener_url_crop(file_path):
     ).rstrip("/")
 
     if not base_url:
+        logger.warning(
+            "OCR_CROP_URL_ERROR | "
+            "No existe PUBLIC_BASE_URL ni RENDER_EXTERNAL_URL"
+        )
         return None
 
-    # Normalizar separadores de Windows/Linux
-    normalized = file_path.replace("\\", "/")
+    normalized = os.path.abspath(
+        file_path
+    ).replace("\\", "/")
 
     marcador = "/documentos/"
 
     if marcador not in normalized:
+
+        logger.warning(
+            "OCR_CROP_URL_ERROR | "
+            "ruta fuera de documentos | archivo=%s",
+            normalized
+        )
+
         return None
 
-    parte = normalized.split(marcador, 1)[1]
+    parte = normalized.split(
+        marcador,
+        1
+    )[1]
 
-    # parte:
-    # desarrollador_software/ocr_debug/pagina_01_apellidos_original.png
-
-    return f"{base_url}/ocr/debug/{parte}"
+    return (
+        f"{base_url}/ocr/debug/"
+        f"{parte}"
+    )
 
 # ============================================================
 # PLANTILLA NORMALIZADA

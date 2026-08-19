@@ -117,49 +117,135 @@ def home():
 # ============================================
 # ENDPOINT: DESCARGAR CROPS DEL OCR
 # ============================================
-@app.get("/ocr/debug/{programa}/{filename}")
+# ============================================
+# ENDPOINT: DESCARGAR CROPS DEL OCR
+# ============================================
+@app.get("/ocr/debug/{programa}/{filename:path}")
 def descargar_crop(programa: str, filename: str):
     """
     Permite acceder directamente desde el navegador
     a los crops generados por el OCR.
 
-    Ejemplo:
+    Acepta rutas como:
+
     /ocr/debug/desarrollador_software/pagina_01_apellidos_original.png
+
+    y también:
+
+    /ocr/debug/desarrollador_software/ocr_debug/pagina_01_apellidos_original.png
     """
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
-    debug_dir = os.path.join(
+    # --------------------------------------------------------
+    # Carpeta raíz permitida
+    # --------------------------------------------------------
+
+    programa_dir = os.path.join(
         base_dir,
         "documentos",
-        programa,
+        programa
+    )
+
+    programa_real = os.path.realpath(programa_dir)
+
+    # --------------------------------------------------------
+    # Normalizar la ruta recibida
+    # --------------------------------------------------------
+
+    filename = filename.replace("\\", "/").lstrip("/")
+
+    # Si la URL contiene "ocr_debug/", lo eliminamos porque
+    # físicamente esa carpeta ya se agrega abajo.
+    if filename.startswith("ocr_debug/"):
+        filename = filename[len("ocr_debug/"):]
+
+    # --------------------------------------------------------
+    # Directorio real de crops
+    # --------------------------------------------------------
+
+    debug_dir = os.path.join(
+        programa_dir,
         "ocr_debug"
     )
 
-    file_path = os.path.join(debug_dir, filename)
-
-    # Seguridad: impedir salir de la carpeta ocr_debug
     debug_real = os.path.realpath(debug_dir)
+
+    # --------------------------------------------------------
+    # Archivo solicitado
+    # --------------------------------------------------------
+
+    file_path = os.path.join(
+        debug_dir,
+        filename
+    )
+
     file_real = os.path.realpath(file_path)
 
-    if not file_real.startswith(debug_real + os.sep):
+    # --------------------------------------------------------
+    # SEGURIDAD
+    # Impedir salir de ocr_debug mediante ../
+    # --------------------------------------------------------
+
+    if not file_real.startswith(
+        debug_real + os.sep
+    ):
+        logger.warning(
+            "OCR_DEBUG_ACCESO_DENEGADO | "
+            "programa=%s | archivo=%s",
+            programa,
+            filename
+        )
+
         raise HTTPException(
             status_code=403,
             detail="Ruta no permitida"
         )
 
+    # --------------------------------------------------------
+    # Verificar existencia
+    # --------------------------------------------------------
+
     if not os.path.isfile(file_real):
+
+        logger.warning(
+            "OCR_DEBUG_NO_ENCONTRADO | "
+            "programa=%s | archivo=%s | ruta=%s",
+            programa,
+            filename,
+            file_real
+        )
+
         raise HTTPException(
             status_code=404,
             detail="Crop no encontrado"
         )
+
+    # --------------------------------------------------------
+    # LOG DE DESCARGA
+    # --------------------------------------------------------
+
+    logger.info(
+        "OCR_DEBUG_DESCARGA | "
+        "programa=%s | archivo=%s | ruta=%s",
+        programa,
+        os.path.basename(file_real),
+        file_real
+    )
+
+    # --------------------------------------------------------
+    # ENTREGAR IMAGEN
+    # --------------------------------------------------------
 
     return FileResponse(
         file_real,
         media_type="image/png",
         filename=os.path.basename(file_real),
         headers={
-            "Content-Disposition": f'attachment; filename="{os.path.basename(file_real)}"'
+            "Content-Disposition": (
+                f'attachment; '
+                f'filename="{os.path.basename(file_real)}"'
+            )
         }
     )
 
