@@ -1,7 +1,9 @@
 import logging
 import re
 import os
+import unicodedata
 from datetime import datetime
+from difflib import SequenceMatcher
 
 import cv2
 import numpy as np
@@ -13,10 +15,6 @@ from app.parser import detectar_y_recortar_cedula
 
 
 logger = logging.getLogger(__name__)
-
-# ============================================================
-# URL PÚBLICA PARA CROPS DE DEBUG
-# ============================================================
 
 # ============================================================
 # URL PÚBLICA PARA CROPS DE DEBUG
@@ -100,6 +98,147 @@ zones_digital = {
     "tipo_sangre": (0.75, 0.55, 0.95, 0.60),
 }
 
+# ============================================================
+# ETIQUETAS QUE EL SISTEMA BUSCARÁ
+# ============================================================
+
+LABELS = {
+
+    "numero_documento": [
+        "NUMERO",
+        "NÚMERO",
+        "NUM",
+        "NUM.",
+        "NUMERO DE DOCUMENTO",
+        "DOCUMENTO",
+        "IDENTIFICACION",
+        "IDENTIFICACIÓN",
+    ],
+
+    "apellidos": [
+        "APELLIDOS",
+        "APELLIDO",
+        "APEL",
+    ],
+
+    "nombres": [
+        "NOMBRES",
+        "NOMBRE",
+        "NOMB",
+        "NOM",
+    ],
+
+    "fecha_nacimiento": [
+        "FECHA DE NACIMIENTO",
+        "FECHA DE NACIMIENTO:",
+        "FECHA NACIMIENTO",
+        "NACIMIENTO",
+    ],
+
+    "lugar_nacimiento": [
+        "LUGAR DE NACIMIENTO",
+        "LUGAR DE NACIMIETO",
+        "LUGAR NACIMIENTO",
+        "LUGAR",
+    ],
+
+    "nacionalidad": [
+        "NACIONALIDAD",
+        "NACIONAL",
+    ],
+
+    "tipo_sangre": [
+        "G.S. RH",
+        "G. S. RH",
+        "GS RH",
+        "G S RH",
+        "RH",
+        "TIPO DE SANGRE",
+    ],
+
+    "sexo": [
+        "SEXO",
+    ],
+
+    "estatura": [
+        "ESTATURA",
+    ],
+
+    "fecha_expedicion": [
+        "FECHA Y LUGAR DE EXPEDICION",
+        "FECHA Y LUGAR DE EXPEDICIÓN",
+        "FECHA EXPEDICION",
+        "FECHA EXPEDICIÓN",
+    ],
+}
+
+# ============================================================
+# NORMALIZACIÓN DE TEXTO
+# ============================================================
+
+def normalizar_ocr_texto(texto):
+    """
+    Normaliza texto OCR para comparar etiquetas.
+
+    Ejemplo:
+
+        "NACIMIÉNTO" -> "NACIMIENTO"
+        "NÚMERO"     -> "NUMERO"
+    """
+
+    if not texto:
+        return ""
+
+    texto = str(texto).upper().strip()
+
+    texto = unicodedata.normalize(
+        "NFD",
+        texto
+    )
+
+    texto = "".join(
+        c
+        for c in texto
+        if unicodedata.category(c) != "Mn"
+    )
+
+    texto = re.sub(
+        r"[^A-Z0-9+#.\s]",
+        " ",
+        texto
+    )
+
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
+
+    return texto
+
+# ============================================================
+# SIMILITUD DE ETIQUETAS
+# ============================================================
+
+def similitud_texto(a, b):
+
+    a = normalizar_ocr_texto(a)
+    b = normalizar_ocr_texto(b)
+
+    if not a or not b:
+        return 0.0
+
+    if a == b:
+        return 1.0
+
+    if a in b or b in a:
+        return 0.95
+
+    return SequenceMatcher(
+        None,
+        a,
+        b
+    ).ratio()
 
 # ============================================================
 # LIMPIEZA
@@ -225,7 +364,7 @@ def limpiar_rh(raw):
         raw
     )
 
-    return m.group(0) if m else None
+    return (m.group(0) if m else None)
 
 
 # ============================================================
@@ -511,22 +650,32 @@ def _ocr_field(crop, field):
         ]
     )
 
-    best = ""
+    resultados = []
 
     for config in field_configs:
+        try:
+            raw = pytesseract.image_to_string(
+                crop,
+                lang="spa",
+                config=config
+            ).strip()
 
-        raw = pytesseract.image_to_string(
-            crop,
-            lang="spa",
-            config=config
-        ).strip()
+            if raw:
+                resultados.append(raw)
 
-        if raw:
-            best = raw
-            break
+        except Exception as e:
+            logger.warning(
+                "OCR_ERROR | campo=%s | config=%r | error=%s",
+                field,
+                config,
+                e
+            )
 
-    return best
-
+    return resultados[0]
+ 
+# ============================================================
+# LIMPIAR CAMPO
+# ============================================================
 
 def _limpiar_campo(field, raw):
 
@@ -573,6 +722,1598 @@ def _limpiar_campo(field, raw):
 
     return value
 
+# ============================================================
+# OCR GENERAL CON COORDENADAS DE PALABRAS
+# ============================================================
+
+def obtener_datos_ocr_pagina(
+    imagen
+):
+
+    """
+    Lee toda la página y devuelve las palabras
+    junto con sus coordenadas.
+
+    Esto es independiente de las zonas de coordenadas.
+
+    Es la segunda capa del sistema:
+        COORDENADAS + ETIQUETAS
+    """
+
+    datos = []
+
+    configuraciones = [
+        "--oem 3 --psm 6",
+        "--oem 3 --psm 11",
+    ]
+
+    for config in configuraciones:
+
+        try:
+
+            data = pytesseract.image_to_data(
+                imagen,
+                lang="spa",
+                config=config,
+                output_type=pytesseract.Output.DICT
+            )
+
+            cantidad = len(
+                data.get(
+                    "text",
+                    []
+                )
+            )
+
+            for i in range(cantidad):
+
+                texto = (
+                    data["text"][i]
+                    or ""
+                ).strip()
+
+                if not texto:
+                    continue
+
+                try:
+
+                    conf = float(
+                        data["conf"][i]
+                    )
+
+                except Exception:
+
+                    conf = 0
+
+                if conf < 15:
+                    continue
+
+                x = int(
+                    data["left"][i]
+                )
+
+                y = int(
+                    data["top"][i]
+                )
+
+                w = int(
+                    data["width"][i]
+                )
+
+                h = int(
+                    data["height"][i]
+                )
+
+                datos.append({
+
+                    "text": texto,
+
+                    "norm": normalizar_ocr_texto(
+                        texto
+                    ),
+
+                    "x": x,
+                    "y": y,
+                    "w": w,
+                    "h": h,
+
+                    "cx": x + (w / 2),
+                    "cy": y + (h / 2),
+
+                    "conf": conf,
+
+                    "block": data["block_num"][i],
+
+                    "par": data["par_num"][i],
+
+                    "line": data["line_num"][i],
+                })
+
+        except Exception as e:
+
+            logger.warning(
+                "OCR_DATA_ERROR | "
+                "config=%s | error=%s",
+                config,
+                e
+            )
+
+    # Eliminar duplicados aproximados
+
+    unicos = []
+
+    vistos = set()
+
+    for item in datos:
+
+        clave = (
+            item["norm"],
+            round(item["x"] / 10),
+            round(item["y"] / 10),
+        )
+
+        if clave in vistos:
+            continue
+
+        vistos.add(
+            clave
+        )
+
+        unicos.append(
+            item
+        )
+
+    return unicos
+
+
+# ============================================================
+# AGRUPAR PALABRAS EN LÍNEAS
+# ============================================================
+
+def agrupar_lineas(
+    datos
+):
+
+    """
+    Agrupa las palabras por proximidad vertical.
+
+    No depende exclusivamente de line_num de Tesseract,
+    porque OCR puede equivocarse con ese identificador.
+    """
+
+    if not datos:
+        return []
+
+    datos = sorted(
+        datos,
+        key=lambda d: (
+            d["cy"],
+            d["x"]
+        )
+    )
+
+    lineas = []
+
+    tolerancia_base = 0.6
+
+    for palabra in datos:
+
+        agregada = False
+
+        for linea in lineas:
+
+            promedio_y = linea["cy"]
+
+            altura = max(
+                linea["altura"],
+                palabra["h"]
+            )
+
+            tolerancia = max(
+                12,
+                altura * tolerancia_base
+            )
+
+            if abs(
+                palabra["cy"] - promedio_y
+            ) <= tolerancia:
+
+                linea["items"].append(
+                    palabra
+                )
+
+                ys = [
+                    x["cy"]
+                    for x in linea["items"]
+                ]
+
+                linea["cy"] = sum(
+                    ys
+                ) / len(ys)
+
+                linea["altura"] = max(
+                    x["h"]
+                    for x in linea["items"]
+                )
+
+                agregada = True
+
+                break
+
+        if not agregada:
+
+            lineas.append({
+
+                "cy": palabra["cy"],
+
+                "altura": palabra["h"],
+
+                "items": [
+                    palabra
+                ],
+            })
+
+    resultado = []
+
+    for linea in lineas:
+
+        items = sorted(
+            linea["items"],
+            key=lambda d: d["x"]
+        )
+
+        texto = " ".join(
+            item["text"]
+            for item in items
+        )
+
+        x1 = min(
+            item["x"]
+            for item in items
+        )
+
+        y1 = min(
+            item["y"]
+            for item in items
+        )
+
+        x2 = max(
+            item["x"] + item["w"]
+            for item in items
+        )
+
+        y2 = max(
+            item["y"] + item["h"]
+            for item in items
+        )
+
+        resultado.append({
+
+            "text": texto,
+
+            "norm": normalizar_ocr_texto(
+                texto
+            ),
+
+            "items": items,
+
+            "x1": x1,
+            "y1": y1,
+            "x2": x2,
+            "y2": y2,
+
+            "cx": (
+                x1 + x2
+            ) / 2,
+
+            "cy": (
+                y1 + y2
+            ) / 2,
+        })
+
+    return sorted(
+        resultado,
+        key=lambda l: l["cy"]
+    )
+
+
+# ============================================================
+# BUSCAR ETIQUETA
+# ============================================================
+
+def encontrar_etiqueta(
+    lineas,
+    field
+):
+
+    etiquetas = LABELS.get(
+        field,
+        []
+    )
+
+    mejor = None
+
+    for linea_index, linea in enumerate(
+        lineas
+    ):
+
+        texto = linea["norm"]
+
+        for etiqueta in etiquetas:
+
+            etiqueta_norm = normalizar_ocr_texto(
+                etiqueta
+            )
+
+            score = similitud_texto(
+                texto,
+                etiqueta_norm
+            )
+
+            # ------------------------------------------------
+            # También buscar etiqueta dentro de la línea
+            # ------------------------------------------------
+
+            if (
+                etiqueta_norm
+                and etiqueta_norm in texto
+            ):
+
+                score = max(
+                    score,
+                    0.96
+                )
+
+            # ------------------------------------------------
+            # Permitir OCR parcial:
+            #
+            # MERO -> NUMERO
+            # NUM  -> NUMERO
+            # NOMB -> NOMBRES
+            # BRES -> NOMBRES
+            # ------------------------------------------------
+
+            palabras_linea = texto.split()
+
+            for palabra in palabras_linea:
+
+                parcial = similitud_texto(
+                    palabra,
+                    etiqueta_norm
+                )
+
+                if len(
+                    normalizar_ocr_texto(
+                        palabra
+                    )
+                ) >= 3:
+
+                    score = max(
+                        score,
+                        parcial
+                    )
+
+            if score >= 0.62:
+
+                candidato = {
+
+                    "field": field,
+
+                    "line_index": linea_index,
+
+                    "line": linea,
+
+                    "score": score,
+
+                    "etiqueta": etiqueta,
+                }
+
+                if (
+                    mejor is None
+                    or score > mejor["score"]
+                ):
+
+                    mejor = candidato
+
+    if mejor:
+
+        logger.info(
+            "OCR_ETIQUETA_ENCONTRADA | "
+            "campo=%s | etiqueta=%s | "
+            "score=%.3f | texto_linea=%r",
+            field,
+            mejor["etiqueta"],
+            mejor["score"],
+            mejor["line"]["text"]
+        )
+
+    return mejor
+
+
+# ============================================================
+# TEXTO DE LÍNEA
+# ============================================================
+
+def texto_de_linea(
+    linea
+):
+
+    if not linea:
+        return ""
+
+    return " ".join(
+        item["text"]
+        for item in sorted(
+            linea["items"],
+            key=lambda x: x["x"]
+        )
+    ).strip()
+
+
+# ============================================================
+# CAPTURAR LÍNEA SUPERIOR
+# ============================================================
+
+def obtener_linea_superior(
+    lineas,
+    indice,
+    cantidad=1
+):
+
+    resultado = []
+
+    inicio = max(
+        0,
+        indice - cantidad
+    )
+
+    for i in range(
+        inicio,
+        indice
+    ):
+
+        resultado.append(
+            lineas[i]
+        )
+
+    return resultado
+
+
+# ============================================================
+# CAPTURAR LÍNEA INFERIOR
+# ============================================================
+
+def obtener_linea_inferior(
+    lineas,
+    indice,
+    cantidad=1
+):
+
+    resultado = []
+
+    fin = min(
+        len(lineas),
+        indice + cantidad + 1
+    )
+
+    for i in range(
+        indice + 1,
+        fin
+    ):
+
+        resultado.append(
+            lineas[i]
+        )
+
+    return resultado
+
+
+# ============================================================
+# EXTRAER TEXTO ALREDEDOR DE ETIQUETA
+# ============================================================
+
+def extraer_por_etiqueta(
+    lineas,
+    field
+):
+
+    etiqueta = encontrar_etiqueta(
+        lineas,
+        field
+    )
+
+    if not etiqueta:
+        return None
+
+    indice = etiqueta[
+        "line_index"
+    ]
+
+    linea = etiqueta[
+        "line"
+    ]
+
+    texto_linea = texto_de_linea(
+        linea
+    )
+
+    etiqueta_norm = normalizar_ocr_texto(
+        etiqueta["etiqueta"]
+    )
+
+    texto_norm = normalizar_ocr_texto(
+        texto_linea
+    )
+
+    # ========================================================
+    # NUMERO
+    #
+    # NUMERO 123456789
+    # ========================================================
+
+    if field == "numero_documento":
+
+        numeros = re.findall(
+            r"\d{6,12}",
+            texto_linea
+        )
+
+        if numeros:
+
+            return numeros[0]
+
+        # Buscar línea inferior
+
+        for siguiente in obtener_linea_inferior(
+            lineas,
+            indice,
+            2
+        ):
+
+            texto = texto_de_linea(
+                siguiente
+            )
+
+            numeros = re.findall(
+                r"\d{6,12}",
+                texto
+            )
+
+            if numeros:
+
+                return numeros[0]
+
+        return None
+
+    # ========================================================
+    # FECHA
+    #
+    # FECHA DE NACIMIENTO 22-FEB-1986
+    # ========================================================
+
+    if field == "fecha_nacimiento":
+
+        fecha = limpiar_fecha(
+            texto_linea
+        )
+
+        if fecha:
+            return fecha
+
+        for siguiente in obtener_linea_inferior(
+            lineas,
+            indice,
+            2
+        ):
+
+            fecha = limpiar_fecha(
+                texto_de_linea(
+                    siguiente
+                )
+            )
+
+            if fecha:
+                return fecha
+
+        return None
+
+    # ========================================================
+    # SEXO
+    # ========================================================
+
+    if field == "sexo":
+
+        # Buscar solamente M/F cercanos
+        # para evitar capturar letras de otras palabras.
+
+        candidatos = []
+
+        for item in linea["items"]:
+
+            texto = normalizar_ocr_texto(
+                item["text"]
+            )
+
+            if texto in (
+                "M",
+                "F"
+            ):
+
+                candidatos.append(
+                    texto
+                )
+
+        if candidatos:
+
+            return limpiar_sexo(
+                candidatos[-1]
+            )
+
+        # Revisar línea siguiente
+
+        for siguiente in obtener_linea_inferior(
+            lineas,
+            indice,
+            2
+        ):
+
+            for item in siguiente["items"]:
+
+                texto = normalizar_ocr_texto(
+                    item["text"]
+                )
+
+                if texto in (
+                    "M",
+                    "F"
+                ):
+
+                    return limpiar_sexo(
+                        texto
+                    )
+
+        return None
+
+    # ========================================================
+    # RH
+    # ========================================================
+
+    if field == "tipo_sangre":
+
+        rh = limpiar_rh(
+            texto_linea
+        )
+
+        if rh:
+            return rh
+
+        for siguiente in obtener_linea_inferior(
+            lineas,
+            indice,
+            2
+        ):
+
+            rh = limpiar_rh(
+                texto_de_linea(
+                    siguiente
+                )
+            )
+
+            if rh:
+                return rh
+
+        return None
+
+    # ========================================================
+    # APELLIDOS
+    #
+    # En la cédula:
+    #
+    # GARCIA PEREZ
+    # APELLIDOS
+    #
+    # Por eso buscamos ARRIBA de la etiqueta.
+    # ========================================================
+
+    if field == "apellidos":
+
+        superiores = obtener_linea_superior(
+            lineas,
+            indice,
+            2
+        )
+
+        for superior in reversed(
+            superiores
+        ):
+
+            texto = texto_de_linea(
+                superior
+            )
+
+            if not texto:
+                continue
+
+            if encontrar_etiqueta_en_texto(
+                texto,
+                LABELS["apellidos"]
+            ):
+
+                continue
+
+            if encontrar_cualquier_etiqueta(
+                texto
+            ):
+
+                continue
+
+            value = limpiar_texto(
+                texto
+            )
+
+            if validar_campo_ocr(
+                field,
+                value
+            ):
+
+                return value
+
+        return None
+
+    # ========================================================
+    # NOMBRES
+    #
+    # Igual que apellidos:
+    #
+    # JUAN CARLOS
+    # NOMBRES
+    #
+    # Buscamos arriba.
+    # ========================================================
+
+    if field == "nombres":
+
+        superiores = obtener_linea_superior(
+            lineas,
+            indice,
+            2
+        )
+
+        for superior in reversed(
+            superiores
+        ):
+
+            texto = texto_de_linea(
+                superior
+            )
+
+            if not texto:
+                continue
+
+            if encontrar_cualquier_etiqueta(
+                texto
+            ):
+
+                continue
+
+            value = limpiar_texto(
+                texto
+            )
+
+            if validar_campo_ocr(
+                field,
+                value
+            ):
+
+                return value
+
+        return None
+
+    # ========================================================
+    # LUGAR DE NACIMIENTO
+    #
+    # POPAYAN
+    # (CAUCA)
+    # LUGAR DE NACIMIENTO
+    #
+    # Buscamos hasta dos líneas arriba.
+    # ========================================================
+
+    if field == "lugar_nacimiento":
+
+        superiores = obtener_linea_superior(
+            lineas,
+            indice,
+            3
+        )
+
+        candidatos = []
+
+        for superior in reversed(
+            superiores
+        ):
+
+            texto = texto_de_linea(
+                superior
+            )
+
+            if not texto:
+                continue
+
+            if encontrar_cualquier_etiqueta(
+                texto
+            ):
+
+                continue
+
+            # Evitar fechas
+            if limpiar_fecha(texto):
+                continue
+
+            candidatos.append(
+                texto
+            )
+
+            if len(candidatos) >= 2:
+                break
+
+        if candidatos:
+
+            candidatos.reverse()
+
+            value = limpiar_texto(
+                " ".join(
+                    candidatos
+                )
+            )
+
+            if validar_campo_ocr(
+                field,
+                value
+            ):
+
+                return value
+
+        return None
+
+    # ========================================================
+    # NACIONALIDAD
+    #
+    # Puede estar al lado o debajo de etiqueta.
+    # ========================================================
+
+    if field == "nacionalidad":
+
+        # Primero intentar misma línea,
+        # eliminando la etiqueta.
+
+        texto = texto_linea
+
+        texto_limpio = re.sub(
+            re.escape(etiqueta_norm),
+            "",
+            normalizar_ocr_texto(texto),
+            flags=re.IGNORECASE
+        ).strip()
+
+        if len(texto_limpio) >= 3:
+
+            value = limpiar_texto(
+                texto_limpio
+            )
+
+            if validar_campo_ocr(
+                field,
+                value
+            ):
+
+                return value
+
+        # Después línea inferior
+
+        for siguiente in obtener_linea_inferior(
+            lineas,
+            indice,
+            2
+        ):
+
+            texto = texto_de_linea(
+                siguiente
+            )
+
+            if not texto:
+                continue
+
+            if encontrar_cualquier_etiqueta(
+                texto
+            ):
+                continue
+
+            value = limpiar_texto(
+                texto
+            )
+
+            if validar_campo_ocr(
+                field,
+                value
+            ):
+
+                return value
+
+        return None
+
+    return None
+
+
+# ============================================================
+# AYUDAS PARA ETIQUETAS
+# ============================================================
+
+def encontrar_etiqueta_en_texto(
+    texto,
+    etiquetas
+):
+
+    texto_norm = normalizar_ocr_texto(
+        texto
+    )
+
+    for etiqueta in etiquetas:
+
+        etiqueta_norm = normalizar_ocr_texto(
+            etiqueta
+        )
+
+        if etiqueta_norm in texto_norm:
+            return True
+
+        if (
+            similitud_texto(
+                texto_norm,
+                etiqueta_norm
+            ) >= 0.75
+        ):
+
+            return True
+
+    return False
+
+
+def encontrar_cualquier_etiqueta(
+    texto
+):
+
+    for etiquetas in LABELS.values():
+
+        if encontrar_etiqueta_en_texto(
+            texto,
+            etiquetas
+        ):
+
+            return True
+
+    return False
+
+
+# ============================================================
+# DETECCIÓN DE LADO DE CÉDULA
+# ============================================================
+
+def detectar_lado_cedula(
+    lineas
+):
+
+    """
+    Determina si la página corresponde a:
+
+        ANVERSO
+        REVERSO
+
+    No depende del número de página.
+
+    Esto permite trabajar incluso si:
+
+        página 1 = reverso
+        página 2 = anverso
+    """
+
+    texto_total = " ".join(
+        linea["norm"]
+        for linea in lineas
+    )
+
+    texto_total = normalizar_ocr_texto(
+        texto_total
+    )
+
+    score_anverso = 0
+    score_reverso = 0
+
+    # --------------------------------------------------------
+    # ANVERSO
+    # --------------------------------------------------------
+
+    etiquetas_anverso = [
+        "NUMERO",
+        "NÚMERO",
+        "APELLIDOS",
+        "NOMBRES",
+    ]
+
+    for etiqueta in etiquetas_anverso:
+
+        etiqueta_norm = normalizar_ocr_texto(
+            etiqueta
+        )
+
+        if etiqueta_norm in texto_total:
+
+            score_anverso += 2
+
+        else:
+
+            for palabra in texto_total.split():
+
+                if similitud_texto(
+                    palabra,
+                    etiqueta_norm
+                ) >= 0.70:
+
+                    score_anverso += 1
+
+                    break
+
+    # --------------------------------------------------------
+    # REVERSO
+    # --------------------------------------------------------
+
+    etiquetas_reverso = [
+        "FECHA DE NACIMIENTO",
+        "LUGAR DE NACIMIENTO",
+        "NACIONALIDAD",
+        "ESTATURA",
+        "SEXO",
+        "RH",
+        "G.S. RH",
+        "FECHA Y LUGAR DE EXPEDICION",
+    ]
+
+    for etiqueta in etiquetas_reverso:
+
+        etiqueta_norm = normalizar_ocr_texto(
+            etiqueta
+        )
+
+        if etiqueta_norm in texto_total:
+
+            score_reverso += 2
+
+        else:
+
+            for palabra in texto_total.split():
+
+                if similitud_texto(
+                    palabra,
+                    etiqueta_norm
+                ) >= 0.70:
+
+                    score_reverso += 1
+
+                    break
+
+    if score_anverso > score_reverso:
+
+        lado = "anverso"
+
+    elif score_reverso > score_anverso:
+
+        lado = "reverso"
+
+    else:
+
+        lado = "desconocido"
+
+    logger.info(
+        "OCR_LADO_DETECTADO | "
+        "lado=%s | "
+        "score_anverso=%s | "
+        "score_reverso=%s",
+        lado,
+        score_anverso,
+        score_reverso
+    )
+
+    return lado
+
+
+# ============================================================
+# OCR POR COORDENADAS
+# ============================================================
+
+def procesar_por_coordenadas(
+    img,
+    page_number,
+    zones,
+    debug_dir
+):
+
+    resultados = {}
+
+    width, height = img.size
+
+    logger.info(
+        "OCR_COORDENADAS_INICIO | "
+        "pagina=%s | tamaño=%sx%s",
+        page_number,
+        width,
+        height
+    )
+
+    for field, coords in zones.items():
+
+        x1, y1, x2, y2 = coords
+
+        x1, x2 = sorted(
+            (x1, x2)
+        )
+
+        y1, y2 = sorted(
+            (y1, y2)
+        )
+
+        x1 = max(
+            0.0,
+            min(1.0, x1)
+        )
+
+        x2 = max(
+            0.0,
+            min(1.0, x2)
+        )
+
+        y1 = max(
+            0.0,
+            min(1.0, y1)
+        )
+
+        y2 = max(
+            0.0,
+            min(1.0, y2)
+        )
+
+        box = (
+            int(x1 * width),
+            int(y1 * height),
+            int(x2 * width),
+            int(y2 * height),
+        )
+
+        logger.info(
+            "OCR_COORDENADAS | "
+            "pagina=%s | campo=%s | "
+            "normalizadas=(%.4f, %.4f, %.4f, %.4f) | "
+            "pixeles=%s",
+            page_number,
+            field,
+            x1,
+            y1,
+            x2,
+            y2,
+            box
+        )
+
+        if (
+            box[2] <= box[0]
+            or box[3] <= box[1]
+        ):
+
+            resultados[field] = None
+
+            continue
+
+        try:
+
+            crop = img.crop(
+                box
+            )
+
+            guardar_crop_debug(
+                crop,
+                f"{field}_coordenadas_original",
+                page_number,
+                debug_dir
+            )
+
+            crop = crop.resize(
+                (
+                    crop.width * 2,
+                    crop.height * 2
+                ),
+                Image.Resampling.LANCZOS
+            )
+
+            guardar_crop_debug(
+                crop,
+                f"{field}_coordenadas_ampliado",
+                page_number,
+                debug_dir
+            )
+
+            crop_ocr = preprocesa_image(
+                crop
+            )
+
+            guardar_crop_debug(
+                crop_ocr,
+                f"{field}_coordenadas_ocr",
+                page_number,
+                debug_dir
+            )
+
+            raw = _ocr_field(
+                crop_ocr,
+                field
+            )
+
+            clean = _limpiar_campo(
+                field,
+                raw
+            )
+
+            logger.info(
+                "OCR_RESULTADO_COORDENADAS | "
+                "pagina=%s | campo=%s | "
+                "raw=%r | clean=%r",
+                page_number,
+                field,
+                raw,
+                clean
+            )
+
+            resultados[field] = clean
+
+        except Exception as e:
+
+            logger.exception(
+                "OCR_COORDENADAS_ERROR | "
+                "pagina=%s | campo=%s | error=%s",
+                page_number,
+                field,
+                e
+            )
+
+            resultados[field] = None
+
+    return resultados
+
+
+# ============================================================
+# OCR POR ETIQUETAS
+# ============================================================
+
+def procesar_por_etiquetas(
+    img,
+    page_number,
+    debug_dir,
+    lado
+):
+
+    resultados = {}
+
+    datos = obtener_datos_ocr_pagina(
+        img
+    )
+
+    logger.info(
+        "OCR_ETIQUETAS_DATA | "
+        "pagina=%s | palabras=%s",
+        page_number,
+        len(datos)
+    )
+
+    lineas = agrupar_lineas(
+        datos
+    )
+
+    logger.info(
+        "OCR_ETIQUETAS_LINEAS | "
+        "pagina=%s | lineas=%s",
+        page_number,
+        len(lineas)
+    )
+
+    # Guardar en log todas las líneas detectadas.
+    # Esto será muy importante durante las pruebas.
+
+    for i, linea in enumerate(
+        lineas
+    ):
+
+        logger.info(
+            "OCR_LINEA | "
+            "pagina=%s | linea=%s | "
+            "texto=%r | box=(%s,%s,%s,%s)",
+            page_number,
+            i,
+            linea["text"],
+            linea["x1"],
+            linea["y1"],
+            linea["x2"],
+            linea["y2"]
+        )
+
+    if lado == "anverso":
+
+        campos = [
+            "numero_documento",
+            "apellidos",
+            "nombres",
+        ]
+
+    elif lado == "reverso":
+
+        campos = [
+            "fecha_nacimiento",
+            "lugar_nacimiento",
+            "nacionalidad",
+            "tipo_sangre",
+            "sexo",
+        ]
+
+    else:
+
+        campos = [
+            "numero_documento",
+            "apellidos",
+            "nombres",
+            "fecha_nacimiento",
+            "lugar_nacimiento",
+            "nacionalidad",
+            "tipo_sangre",
+            "sexo",
+        ]
+
+    for field in campos:
+
+        try:
+
+            valor = extraer_por_etiqueta(
+                lineas,
+                field
+            )
+
+            if valor:
+
+                valor_limpio = _limpiar_campo(
+                    field,
+                    valor
+                )
+
+            else:
+
+                valor_limpio = None
+
+            logger.info(
+                "OCR_RESULTADO_ETIQUETA | "
+                "pagina=%s | campo=%s | "
+                "valor=%r | limpio=%r",
+                page_number,
+                field,
+                valor,
+                valor_limpio
+            )
+
+            resultados[field] = (
+                valor_limpio
+            )
+
+        except Exception as e:
+
+            logger.exception(
+                "OCR_ETIQUETA_ERROR | "
+                "pagina=%s | campo=%s | error=%s",
+                page_number,
+                field,
+                e
+            )
+
+            resultados[field] = None
+
+    return resultados
+
+
+# ============================================================
+# PUNTAJE DE CONFIANZA
+# ============================================================
+
+def puntuar_resultado(
+    field,
+    value,
+    origen
+):
+
+    if not value:
+        return 0
+
+    if not validar_campo_ocr(
+        field,
+        value
+    ):
+        return 0
+
+    score = 50
+
+    if origen == "etiqueta":
+        score += 10
+
+    # Validaciones específicas
+
+    if field == "numero_documento":
+
+        if re.fullmatch(
+            r"\d{8,10}",
+            str(value)
+        ):
+
+            score += 25
+
+    elif field in (
+        "apellidos",
+        "nombres",
+    ):
+
+        palabras = str(
+            value
+        ).split()
+
+        if len(palabras) >= 2:
+
+            score += 20
+
+    elif field == "tipo_sangre":
+
+        score += 30
+
+    elif field == "sexo":
+
+        score += 30
+
+    elif field == "fecha_nacimiento":
+
+        score += 30
+
+    return score
+
+
+# ============================================================
+# ELEGIR ENTRE COORDENADAS Y ETIQUETAS
+# ============================================================
+
+def combinar_resultados(
+    coordenadas,
+    etiquetas,
+    lado
+):
+
+    resultado = {}
+
+    campos = set(
+        list(coordenadas.keys())
+        +
+        list(etiquetas.keys())
+    )
+
+    for field in campos:
+
+        valor_coord = coordenadas.get(
+            field
+        )
+
+        valor_etiqueta = etiquetas.get(
+            field
+        )
+
+        score_coord = puntuar_resultado(
+            field,
+            valor_coord,
+            "coordenadas"
+        )
+
+        score_etiqueta = puntuar_resultado(
+            field,
+            valor_etiqueta,
+            "etiqueta"
+        )
+
+        # ====================================================
+        # REGLA PRINCIPAL
+        # ====================================================
+
+        if (
+            score_etiqueta
+            >
+            score_coord
+        ):
+
+            elegido = valor_etiqueta
+            origen = "ETIQUETA"
+
+        else:
+
+            elegido = valor_coord
+            origen = "COORDENADAS"
+
+        # ====================================================
+        # CASO ESPECIAL:
+        # coordenada inválida y etiqueta válida
+        # ====================================================
+
+        if (
+            not valor_coord
+            and valor_etiqueta
+        ):
+
+            elegido = valor_etiqueta
+            origen = "ETIQUETA"
+
+        elif (
+            not valor_etiqueta
+            and valor_coord
+        ):
+
+            elegido = valor_coord
+            origen = "COORDENADAS"
+
+        logger.info(
+            "OCR_COMBINACION | "
+            "lado=%s | campo=%s | "
+            "coordenadas=%r | score_coord=%s | "
+            "etiqueta=%r | score_etiqueta=%s | "
+            "ELEGIDO=%r | origen=%s",
+            lado,
+            field,
+            valor_coord,
+            score_coord,
+            valor_etiqueta,
+            score_etiqueta,
+            elegido,
+            origen
+        )
+
+        resultado[field] = elegido
+
+    # ========================================================
+    # NOMBRE COMPLETO
+    # ========================================================
+
+    apellidos = resultado.get(
+        "apellidos"
+    )
+
+    nombres = resultado.get(
+        "nombres"
+    )
+
+    if apellidos and nombres:
+
+        resultado[
+            "nombre_completo"
+        ] = (
+            f"{nombres} {apellidos}"
+        )
+
+        logger.info(
+            "OCR_NOMBRE_COMPLETO | "
+            "nombres=%r | apellidos=%r | "
+            "nombre_completo=%r",
+            nombres,
+            apellidos,
+            resultado[
+                "nombre_completo"
+            ]
+        )
+
+    return resultado
 
 # ============================================================
 # PDF DIGITAL
@@ -581,6 +2322,9 @@ def _limpiar_campo(field, raw):
 def extract_fields_from_text(text):
 
     results = {}
+
+    if not text:
+        return results 
 
     # --------------------------------------------------------
     # DOCUMENTO
@@ -591,9 +2335,11 @@ def extract_fields_from_text(text):
         text
     )
 
-    results["numero_documento"] = (
-        match.group(1)
-        if match
+    if match:
+
+        results["numero_documento"] = (
+            match.group(1)
+            if match
         else None
     )
 
@@ -608,13 +2354,15 @@ def extract_fields_from_text(text):
         re.IGNORECASE,
     )
 
-    results["nombre_completo"] = (
-        limpiar_texto(
-            match.group(1).strip()
+    if match:
+        results["nombre_completo"] = (
+            limpiar_texto(
+                match.group(1).strip()
+            )
         )
-        if match
-        else None
-    )
+    else:
+        results["nombre_completo"] = None
+    
 
     # --------------------------------------------------------
     # FECHA
@@ -625,13 +2373,15 @@ def extract_fields_from_text(text):
         text
     )
 
-    results["fecha_nacimiento"] = (
-        limpiar_fecha(
-            match.group(1)
+    if match:
+        results["fecha_nacimiento"] = (
+            limpiar_fecha(
+                match.group(1)
+            )
         )
-        if match
-        else None
-    )
+    else:
+        results["fecha_nacimiento"] = None
+    
 
     # --------------------------------------------------------
     # SEXO
@@ -643,13 +2393,14 @@ def extract_fields_from_text(text):
         re.IGNORECASE
     )
 
-    results["sexo"] = (
-        limpiar_sexo(
-            match.group(2)
+    if match:
+        results["sexo"] = (
+            limpiar_sexo(
+                match.group(2)
+            )
         )
-        if match
-        else None
-    )
+    else:
+        results["sexo"] = None
 
     # --------------------------------------------------------
     # LUGAR
@@ -663,13 +2414,15 @@ def extract_fields_from_text(text):
         re.IGNORECASE,
     )
 
-    results["lugar_nacimiento"] = (
-        limpiar_texto(
-            match.group(1).strip()
+    if match:
+
+        results["lugar_nacimiento"] = (
+            limpiar_texto(
+                match.group(1).strip()
+            )
+            if match
+            else None
         )
-        if match
-        else None
-    )
 
     # --------------------------------------------------------
     # NACIONALIDAD
@@ -682,13 +2435,15 @@ def extract_fields_from_text(text):
         re.IGNORECASE
     )
 
-    results["nacionalidad"] = (
-        limpiar_texto(
-            match.group(2).strip()
+    if match:
+        results["nacionalidad"] = (
+            limpiar_texto(
+                match.group(2).strip()
+            )
         )
-        if match
-        else None
-    )
+    else:
+        results["nacionalidad"] = None
+    
 
     # --------------------------------------------------------
     # RH
@@ -701,19 +2456,21 @@ def extract_fields_from_text(text):
         re.IGNORECASE
     )
 
-    results["tipo_sangre"] = (
-        limpiar_rh(
-            match.group(2)
+    if match:
+
+        results["tipo_sangre"] = (
+            limpiar_rh(
+                match.group(2)
+            )
+            if match
+            else None
         )
-        if match
-        else None
-    )
 
     return results
 
 
 # ============================================================
-# VALIDACIÓN GENERAL
+# RESULTADO ÚTIL
 # ============================================================
 
 def _resultado_util(results):
@@ -741,7 +2498,7 @@ def _resultado_util(results):
 
 
 # ============================================================
-# RESULTADO SEGURO
+# RESULTADO FINAL
 # ============================================================
 
 def normalizar_resultado_final(results):
@@ -781,24 +2538,27 @@ def extract_fields(
     modelo="hologramas"
 ):
     """
-    Procesa hasta las dos primeras páginas.
+      Procesa las dos primeras páginas utilizando DOS mecanismos:
 
-    Página 1:
-        número + apellidos + nombres
+    1. Lectura estructural por texto / etiquetas / líneas / columnas.
+    2. OCR por coordenadas.
 
-    Página 2:
-        fecha + lugar + sexo + RH + nacionalidad
+    Los dos resultados se conservan y posteriormente se combinan.
 
-    Durante esta etapa de depuración se guardan los crops
-    utilizados por OCR dentro de:
-
-        <carpeta_del_pdf>/ocr_debug/
+    Además mantiene:
+        - crops originales
+        - crops ampliados
+        - crops preprocesados
+        - URLs públicas de debug
+        - logs de coordenadas
+        - detección de cédula
+        - validación OCR
     """
 
     results = {}
 
     # --------------------------------------------------------
-    # DIRECTORIO DE DEBUG
+    # DIRECTORIO DEBUG
     # --------------------------------------------------------
 
     debug_dir = os.path.join(
@@ -838,13 +2598,24 @@ def extract_fields(
                     or ""
                 )
 
+                text_results = {}
+
                 if text.strip():
+
+                    # ------------------------------------------------
+                    # LECTURA TRADICIONAL
+                    # ------------------------------------------------
 
                     text_results = (
                         extract_fields_from_text(
                             text
                         )
                     )
+
+                   
+                    # ------------------------------------------------
+                    # COMBINAR RESULTADOS DE TEXTO
+                    # ------------------------------------------------
 
                     for key, value in text_results.items():
 
@@ -856,19 +2627,24 @@ def extract_fields(
                                 value
                             )
                         ):
+
                             results[key] = value
 
-                    if _resultado_util(
-                        text_results
-                    ):
+                    # =================================================
+                    # IMPORTANTE:
+                    #
+                    # NO HACER "continue".
+                    #
+                    # Aunque el texto haya encontrado datos,
+                    # SIEMPRE continuamos hacia coordenadas.
+                    # =================================================
 
-                        logger.info(
-                            "Página %s: datos obtenidos "
-                            "desde texto PDF.",
-                            page_number
-                        )
-
-                        continue
+                    logger.info(
+                        "Página %s: resultados obtenidos "
+                        "por lectura estructurada. "
+                        "Continuando con OCR por coordenadas.",
+                        page_number
+                    )
 
                 # ====================================================
                 # 2. RENDERIZAR PÁGINA
@@ -940,6 +2716,49 @@ def extract_fields(
                 )
 
                 # ====================================================
+                # 3.5. OCR POR ETIQUETAS Y LÍNEAS
+                # ====================================================
+
+                lado = detectar_lado_cedula(
+                    agrupar_lineas(
+                        obtener_datos_ocr_pagina(
+                            img
+                        )
+                    )
+                )
+
+                logger.info(
+                    "OCR_LADO_FINAL | "
+                        "pagina=%s | lado=%s",
+                        page_number,
+                        lado
+                    )
+
+                etiqueta_results = (
+                    procesar_por_etiquetas(
+                        img,
+                        page_number,
+                        debug_dir,
+                        lado
+                    )
+                )
+
+                for key, value in etiqueta_results.items():
+
+                    if (
+                        value
+                        and validar_campo_ocr(
+                            key,
+                            value
+                        )
+                    ):
+
+                        if not results.get(key):
+
+                            results[key] = value              
+
+
+                # ====================================================
                 # 4. SELECCIONAR PLANTILLA
                 # ====================================================
 
@@ -965,8 +2784,12 @@ def extract_fields(
 
                 for field, coords in zones.items():
 
-                    if results.get(field):
-                        continue
+                    # ------------------------------------------------
+                    # NO saltamos el campo aunque ya exista.
+                    #
+                    # Lo procesamos porque necesitamos los crops
+                    # para depuración y comparación.
+                    # ------------------------------------------------
 
                     x1, y1, x2, y2 = coords
 
@@ -1040,8 +2863,6 @@ def extract_fields(
                             field,
                             box
                         )
-
-                        results[field] = None
 
                         continue
 
@@ -1161,7 +2982,13 @@ def extract_fields(
                         )
 
                         # ====================================================
-                        # GUARDAR SOLO RESULTADOS VÁLIDOS
+                        # COMBINACIÓN:
+                        #
+                        # Si coordenadas encuentran un valor válido,
+                        # lo usamos.
+                        #
+                        # Si no encuentran nada, conservamos el valor
+                        # obtenido por etiquetas/líneas.
                         # ====================================================
 
                         if clean:
@@ -1182,7 +3009,36 @@ def extract_fields(
                             e
                         )
 
-                        results[field] = None
+                        # IMPORTANTE:
+                        # No borrar un resultado que ya pudo obtenerse
+                        # mediante etiquetas/líneas.
+
+                        if field not in results:
+
+                            results[field] = None
+
+                # ====================================================
+                # 6. RECONSTRUIR NOMBRE COMPLETO
+                # ====================================================
+
+                if (
+                    results.get("apellidos")
+                    and results.get("nombres")
+                ):
+
+                    nombre_completo = limpiar_texto(
+                        f"{results['apellidos']} "
+                        f"{results['nombres']}"
+                    )
+
+                    if validar_campo_ocr(
+                        "nombre_completo",
+                        nombre_completo
+                    ):
+
+                        results[
+                            "nombre_completo"
+                        ] = nombre_completo
 
     except Exception as e:
 
