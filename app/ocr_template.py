@@ -81,20 +81,20 @@ zones_hologramas_anverso = {
 }
 
 zones_hologramas_reverso = {
-    "fecha_nacimiento": (0.32, 0.46, 0.49, 0.11),
-    "lugar_nacimiento": (0.32, 0.37, 0.28, 0.30),
-    "tipo_sangre":      (0.49, 0.25, 0.11, 0.28),
-    "sexo":             (0.63, 0.22, 0.07, 0.15),
+    "fecha_nacimiento": (0.45, 0.10, 0.75, 0.24),
+    "lugar_nacimiento": (0.10, 0.10, 0.40, 0.25),
+    "tipo_sangre":      (0.50, 0.22, 0.65, 0.30),
+    "sexo":             (0.78, 0.22, 0.93, 0.32),
 }
 
 zones_digital = {
     "numero_documento": (0.65, 0.08, 0.95, 0.13),
-    "nombre_completo": (0.15, 0.25, 0.85, 0.32),
+    "nombre_completo":  (0.15, 0.25, 0.85, 0.32),
     "fecha_nacimiento": (0.15, 0.35, 0.40, 0.40),
-    "sexo": (0.45, 0.35, 0.55, 0.40),
+    "sexo":             (0.45, 0.35, 0.55, 0.40),
     "lugar_nacimiento": (0.15, 0.45, 0.55, 0.50),
-    "nacionalidad": (0.60, 0.45, 0.85, 0.50),
-    "tipo_sangre": (0.75, 0.55, 0.95, 0.60),
+    "nacionalidad":     (0.60, 0.45, 0.85, 0.50),
+    "tipo_sangre":      (0.75, 0.55, 0.95, 0.60),
 }
 
 # ============================================================
