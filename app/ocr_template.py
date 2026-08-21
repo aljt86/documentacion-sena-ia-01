@@ -75,16 +75,16 @@ def _obtener_url_crop(file_path):
 # ============================================================
 
 zones_hologramas_anverso = {
-    "numero_documento": (0.04, 0.29, 0.42, 0.07),
-    "apellidos":        (0.04, 0.35, 0.42, 0.14),
-    "nombres":          (0.04, 0.51, 0.42, 0.12),
+    "numero_documento": (0.04, 0.34, 0.45, 0.16),
+    "apellidos":        (0.04, 0.26, 0.45, 0.18),
+    "nombres":          (0.04, 0.18, 0.45, 0.27),
 }
 
 zones_hologramas_reverso = {
-    "fecha_nacimiento": (0.37, 0.09, 0.49, 0.05),
-    "lugar_nacimiento": (0.36, 0.16, 0.28, 0.11),
-    "tipo_sangre":      (0.56, 0.29, 0.11, 0.12),
-    "sexo":             (0.73, 0.29, 0.07, 0.12),
+    "fecha_nacimiento": (0.32, 0.46, 0.49, 0.11),
+    "lugar_nacimiento": (0.32, 0.37, 0.28, 0.30),
+    "tipo_sangre":      (0.49, 0.25, 0.11, 0.28),
+    "sexo":             (0.63, 0.22, 0.07, 0.15),
 }
 
 zones_digital = {
