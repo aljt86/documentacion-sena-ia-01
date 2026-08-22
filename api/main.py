@@ -294,8 +294,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         if not numero_doc:
            logger.warning("OCR sin número de documento." "Se continuará guardando el resto de los datos")
            numero_doc = None 
-           return
-
+          
         # ==================================================
         # VALIDAR USUARIO
         # ==================================================
@@ -457,7 +456,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
             "UsuarioId=%s",
             estudiante.Id,
             programa_db.id,
-            numero_documento.Id
+            nuevo_documento.Id
         )
 
         # --------------------------------------------------
