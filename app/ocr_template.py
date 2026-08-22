@@ -16,6 +16,7 @@ from app.parser import detectar_y_recortar_cedula
 
 logger = logging.getLogger(__name__)
 
+
 # ============================================================
 # URL PÚBLICA PARA CROPS DE DEBUG
 # ============================================================
@@ -70,6 +71,7 @@ def _obtener_url_crop(file_path):
         f"{parte}"
     )
 
+
 # ============================================================
 # PLANTILLA NORMALIZADA
 # ============================================================
@@ -80,12 +82,14 @@ zones_hologramas_anverso = {
     "nombres":          (0.04, 0.46, 0.99, 0.60),
 }
 
+
 zones_hologramas_reverso = {
     "fecha_nacimiento": (0.45, 0.07, 0.72, 0.14),
     "lugar_nacimiento": (0.10, 0.07, 0.42, 0.16),
     "tipo_sangre":      (0.48, 0.16, 0.62, 0.23),
     "sexo":             (0.68, 0.16, 0.78, 0.23),
 }
+
 
 zones_digital = {
     "numero_documento": (0.65, 0.08, 0.95, 0.13),
@@ -96,6 +100,7 @@ zones_digital = {
     "nacionalidad":     (0.60, 0.45, 0.85, 0.50),
     "tipo_sangre":      (0.75, 0.55, 0.95, 0.60),
 }
+
 
 # ============================================================
 # ETIQUETAS QUE EL SISTEMA BUSCARÁ
@@ -171,6 +176,7 @@ LABELS = {
     ],
 }
 
+
 # ============================================================
 # NORMALIZACIÓN DE TEXTO
 # ============================================================
@@ -215,6 +221,7 @@ def normalizar_ocr_texto(texto):
 
     return texto
 
+
 # ============================================================
 # SIMILITUD DE ETIQUETAS
 # ============================================================
@@ -239,20 +246,27 @@ def similitud_texto(a, b):
         b
     ).ratio()
 
+
 # ============================================================
 # LIMPIEZA
 # ============================================================
 
 def limpiar_numero(raw):
+
     if not raw:
         return None
 
-    digits = re.sub(r"\D", "", str(raw))
+    digits = re.sub(
+        r"\D",
+        "",
+        str(raw)
+    )
 
     return digits or None
 
 
 def limpiar_texto(raw):
+
     if not raw:
         return None
 
@@ -262,12 +276,17 @@ def limpiar_texto(raw):
         str(raw)
     )
 
-    texto = re.sub(r"\s+", " ", texto).strip()
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
 
     return texto.title() if texto else None
 
 
 def limpiar_fecha(raw):
+
     if not raw:
         return None
 
@@ -288,53 +307,80 @@ def limpiar_fecha(raw):
         "DIC": "12",
     }
 
-    # Formato: 17-AGO-1990 / 17 AGO 1990 / 17/AGO/1990
+    # --------------------------------------------------------
+    # Formato:
+    #
+    # 17-AGO-1990
+    # 17 AGO 1990
+    # 17/AGO/1990
+    # --------------------------------------------------------
+
     m = re.search(
         r"(\d{1,2})[-/\s]([A-ZÁÉÍÓÚ]{3})[-/\s](\d{4})",
         raw
     )
 
     if m:
+
         d, mes, year = m.groups()
 
-        mes_num = meses.get(mes[:3])
+        mes_num = meses.get(
+            mes[:3]
+        )
 
         if mes_num:
+
             try:
+
                 fecha = datetime.strptime(
                     f"{year}-{mes_num}-{d.zfill(2)}",
                     "%Y-%m-%d"
                 )
 
-                return fecha.strftime("%Y-%m-%d")
+                return fecha.strftime(
+                    "%Y-%m-%d"
+                )
 
             except ValueError:
+
                 return None
 
-    # Formato: 17/08/1990
+    # --------------------------------------------------------
+    # Formato:
+    #
+    # 17/08/1990
+    # 17-08-1990
+    # --------------------------------------------------------
+
     m = re.search(
         r"(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})",
         raw
     )
 
     if m:
+
         d, mes, year = m.groups()
 
         try:
+
             fecha = datetime.strptime(
                 f"{year}-{mes.zfill(2)}-{d.zfill(2)}",
                 "%Y-%m-%d"
             )
 
-            return fecha.strftime("%Y-%m-%d")
+            return fecha.strftime(
+                "%Y-%m-%d"
+            )
 
         except ValueError:
+
             return None
 
     return None
 
 
 def limpiar_sexo(raw):
+
     if not raw:
         return None
 
@@ -350,27 +396,41 @@ def limpiar_sexo(raw):
 
 
 def limpiar_rh(raw):
+
     if not raw:
         return None
 
-    raw = str(raw).upper().replace(" ", "")
+    raw = str(raw).upper().replace(
+        " ",
+        ""
+    )
 
     # OCR suele confundir O con 0.
-    raw = raw.replace("0", "O")
+    raw = raw.replace(
+        "0",
+        "O"
+    )
 
     m = re.search(
         r"(AB|A|B|O)[+-]",
         raw
     )
 
-    return (m.group(0) if m else None)
+    return (
+        m.group(0)
+        if m
+        else None
+    )
 
 
 # ============================================================
 # VALIDACIÓN DE RESULTADOS OCR
 # ============================================================
 
-def validar_campo_ocr(field, value):
+def validar_campo_ocr(
+    field,
+    value
+):
     """
     Evita aceptar resultados OCR claramente inválidos.
 
@@ -396,8 +456,12 @@ def validar_campo_ocr(field, value):
     # --------------------------------------------------------
 
     if field == "numero_documento":
+
         return bool(
-            re.fullmatch(r"\d{6,12}", value)
+            re.fullmatch(
+                r"\d{6,12}",
+                value
+            )
         )
 
     # --------------------------------------------------------
@@ -405,6 +469,7 @@ def validar_campo_ocr(field, value):
     # --------------------------------------------------------
 
     if field == "fecha_nacimiento":
+
         if not re.fullmatch(
             r"\d{4}-\d{2}-\d{2}",
             value
@@ -412,13 +477,16 @@ def validar_campo_ocr(field, value):
             return False
 
         try:
+
             datetime.strptime(
                 value,
                 "%Y-%m-%d"
             )
+
             return True
 
         except ValueError:
+
             return False
 
     # --------------------------------------------------------
@@ -426,6 +494,7 @@ def validar_campo_ocr(field, value):
     # --------------------------------------------------------
 
     if field == "sexo":
+
         return value in (
             "Masculino",
             "Femenino",
@@ -436,6 +505,7 @@ def validar_campo_ocr(field, value):
     # --------------------------------------------------------
 
     if field == "tipo_sangre":
+
         return bool(
             re.fullmatch(
                 r"(AB|A|B|O)[+-]",
@@ -452,6 +522,7 @@ def validar_campo_ocr(field, value):
         "nombres",
         "nombre_completo",
     ):
+
         palabras = value.split()
 
         if len(value) < 3:
@@ -460,8 +531,13 @@ def validar_campo_ocr(field, value):
         if not palabras:
             return False
 
-        # Evita aceptar una única letra como "O" o "A".
-        if len(value.replace(" ", "")) < 3:
+        if len(
+            value.replace(
+                " ",
+                ""
+            )
+        ) < 3:
+
             return False
 
         return True
@@ -474,10 +550,17 @@ def validar_campo_ocr(field, value):
         "lugar_nacimiento",
         "nacionalidad",
     ):
+
         if len(value) < 3:
             return False
 
-        if len(value.replace(" ", "")) < 3:
+        if len(
+            value.replace(
+                " ",
+                ""
+            )
+        ) < 3:
+
             return False
 
         return True
@@ -509,6 +592,7 @@ def guardar_crop_debug(
     """
 
     try:
+
         os.makedirs(
             debug_dir,
             exist_ok=True
@@ -524,9 +608,13 @@ def guardar_crop_debug(
             filename
         )
 
-        crop.save(path)
+        crop.save(
+            path
+        )
 
-        url = _obtener_url_crop(path)
+        url = _obtener_url_crop(
+            path
+        )
 
         logger.info(
             "OCR_CROP_GUARDADO | pagina=%s | campo=%s | archivo=%s",
@@ -536,6 +624,7 @@ def guardar_crop_debug(
         )
 
         if url:
+
             logger.info(
                 "OCR_CROP_URL | pagina=%s | campo=%s | url=%s",
                 page_number,
@@ -546,6 +635,7 @@ def guardar_crop_debug(
         return path
 
     except Exception as e:
+
         logger.warning(
             "OCR_CROP_ERROR | "
             "pagina=%s | campo=%s | error=%s",
@@ -561,7 +651,9 @@ def guardar_crop_debug(
 # PREPROCESAMIENTO
 # ============================================================
 
-def preprocesa_image(pil_img):
+def preprocesa_image(
+    pil_img
+):
 
     try:
 
@@ -574,7 +666,9 @@ def preprocesa_image(pil_img):
             tileGridSize=(8, 8)
         )
 
-        img = clahe.apply(img)
+        img = clahe.apply(
+            img
+        )
 
         img = cv2.GaussianBlur(
             img,
@@ -591,7 +685,9 @@ def preprocesa_image(pil_img):
             7
         )
 
-        return Image.fromarray(thresh)
+        return Image.fromarray(
+            thresh
+        )
 
     except Exception as e:
 
@@ -607,11 +703,15 @@ def preprocesa_image(pil_img):
 # OCR POR CAMPO
 # ============================================================
 
-def _ocr_field(crop, field):
+def _ocr_field(
+    crop,
+    field
+):
 
     configs = {
 
         "numero_documento": [
+
             "--oem 3 --psm 7 "
             "-c tessedit_char_whitelist=0123456789",
 
@@ -620,11 +720,14 @@ def _ocr_field(crop, field):
         ],
 
         "fecha_nacimiento": [
+
             "--oem 3 --psm 7",
+
             "--oem 3 --psm 8",
         ],
 
         "sexo": [
+
             "--oem 3 --psm 10 "
             "-c tessedit_char_whitelist=MF",
 
@@ -633,6 +736,7 @@ def _ocr_field(crop, field):
         ],
 
         "tipo_sangre": [
+
             "--oem 3 --psm 10 "
             "-c tessedit_char_whitelist=ABO+−-",
 
@@ -652,7 +756,9 @@ def _ocr_field(crop, field):
     resultados = []
 
     for config in field_configs:
+
         try:
+
             raw = pytesseract.image_to_string(
                 crop,
                 lang="spa",
@@ -660,9 +766,13 @@ def _ocr_field(crop, field):
             ).strip()
 
             if raw:
-                resultados.append(raw)
+
+                resultados.append(
+                    raw
+                )
 
         except Exception as e:
+
             logger.warning(
                 "OCR_ERROR | campo=%s | config=%r | error=%s",
                 field,
@@ -670,28 +780,49 @@ def _ocr_field(crop, field):
                 e
             )
 
-    return resultados[0]
- 
+    # Evita IndexError si Tesseract no devuelve nada.
+    if resultados:
+
+        return resultados[0]
+
+    return None
+
+
 # ============================================================
 # LIMPIAR CAMPO
 # ============================================================
 
-def _limpiar_campo(field, raw):
+def _limpiar_campo(
+    field,
+    raw
+):
 
     if not raw:
         return None
 
     if field == "numero_documento":
-        value = limpiar_numero(raw)
+
+        value = limpiar_numero(
+            raw
+        )
 
     elif field == "fecha_nacimiento":
-        value = limpiar_fecha(raw)
+
+        value = limpiar_fecha(
+            raw
+        )
 
     elif field == "sexo":
-        value = limpiar_sexo(raw)
+
+        value = limpiar_sexo(
+            raw
+        )
 
     elif field == "tipo_sangre":
-        value = limpiar_rh(raw)
+
+        value = limpiar_rh(
+            raw
+        )
 
     elif field in (
         "apellidos",
@@ -700,15 +831,24 @@ def _limpiar_campo(field, raw):
         "lugar_nacimiento",
         "nacionalidad",
     ):
-        value = limpiar_texto(raw)
+
+        value = limpiar_texto(
+            raw
+        )
 
     else:
-        value = str(raw).strip() if raw else None
+
+        value = (
+            str(raw).strip()
+            if raw
+            else None
+        )
 
     if not validar_campo_ocr(
         field,
         value
     ):
+
         logger.warning(
             "OCR_VALOR_RECHAZADO | "
             "campo=%s | raw=%r | clean=%r",
@@ -720,6 +860,7 @@ def _limpiar_campo(field, raw):
         return None
 
     return value
+
 
 # ============================================================
 # OCR GENERAL CON COORDENADAS DE PALABRAS
@@ -764,7 +905,9 @@ def obtener_datos_ocr_pagina(
                 )
             )
 
-            for i in range(cantidad):
+            for i in range(
+                cantidad
+            ):
 
                 texto = (
                     data["text"][i]
@@ -837,7 +980,9 @@ def obtener_datos_ocr_pagina(
                 e
             )
 
-    # Eliminar duplicados aproximados
+    # ========================================================
+    # ELIMINAR DUPLICADOS
+    # ========================================================
 
     unicos = []
 
@@ -926,9 +1071,11 @@ def agrupar_lineas(
                     for x in linea["items"]
                 ]
 
-                linea["cy"] = sum(
-                    ys
-                ) / len(ys)
+                linea["cy"] = (
+                    sum(ys)
+                    /
+                    len(ys)
+                )
 
                 linea["altura"] = max(
                     x["h"]
@@ -1064,12 +1211,7 @@ def encontrar_etiqueta(
                 )
 
             # ------------------------------------------------
-            # Permitir OCR parcial:
-            #
-            # MERO -> NUMERO
-            # NUM  -> NUMERO
-            # NOMB -> NOMBRES
-            # BRES -> NOMBRES
+            # Permitir OCR parcial
             # ------------------------------------------------
 
             palabras_linea = texto.split()
@@ -1246,8 +1388,6 @@ def extraer_por_etiqueta(
 
     # ========================================================
     # NUMERO
-    #
-    # NUMERO 123456789
     # ========================================================
 
     if field == "numero_documento":
@@ -1258,10 +1398,7 @@ def extraer_por_etiqueta(
         )
 
         if numeros:
-
             return numeros[0]
-
-        # Buscar línea inferior
 
         for siguiente in obtener_linea_inferior(
             lineas,
@@ -1279,15 +1416,12 @@ def extraer_por_etiqueta(
             )
 
             if numeros:
-
                 return numeros[0]
 
         return None
 
     # ========================================================
     # FECHA
-    #
-    # FECHA DE NACIMIENTO 22-FEB-1986
     # ========================================================
 
     if field == "fecha_nacimiento":
@@ -1322,9 +1456,6 @@ def extraer_por_etiqueta(
 
     if field == "sexo":
 
-        # Buscar solamente M/F cercanos
-        # para evitar capturar letras de otras palabras.
-
         candidatos = []
 
         for item in linea["items"]:
@@ -1347,8 +1478,6 @@ def extraer_por_etiqueta(
             return limpiar_sexo(
                 candidatos[-1]
             )
-
-        # Revisar línea siguiente
 
         for siguiente in obtener_linea_inferior(
             lineas,
@@ -1405,13 +1534,6 @@ def extraer_por_etiqueta(
 
     # ========================================================
     # APELLIDOS
-    #
-    # En la cédula:
-    #
-    # GARCIA PEREZ
-    # APELLIDOS
-    #
-    # Por eso buscamos ARRIBA de la etiqueta.
     # ========================================================
 
     if field == "apellidos":
@@ -1461,13 +1583,6 @@ def extraer_por_etiqueta(
 
     # ========================================================
     # NOMBRES
-    #
-    # Igual que apellidos:
-    #
-    # JUAN CARLOS
-    # NOMBRES
-    #
-    # Buscamos arriba.
     # ========================================================
 
     if field == "nombres":
@@ -1510,12 +1625,6 @@ def extraer_por_etiqueta(
 
     # ========================================================
     # LUGAR DE NACIMIENTO
-    #
-    # POPAYAN
-    # (CAUCA)
-    # LUGAR DE NACIMIENTO
-    #
-    # Buscamos hasta dos líneas arriba.
     # ========================================================
 
     if field == "lugar_nacimiento":
@@ -1545,8 +1654,10 @@ def extraer_por_etiqueta(
 
                 continue
 
-            # Evitar fechas
-            if limpiar_fecha(texto):
+            if limpiar_fecha(
+                texto
+            ):
+
                 continue
 
             candidatos.append(
@@ -1577,21 +1688,18 @@ def extraer_por_etiqueta(
 
     # ========================================================
     # NACIONALIDAD
-    #
-    # Puede estar al lado o debajo de etiqueta.
     # ========================================================
 
     if field == "nacionalidad":
-
-        # Primero intentar misma línea,
-        # eliminando la etiqueta.
 
         texto = texto_linea
 
         texto_limpio = re.sub(
             re.escape(etiqueta_norm),
             "",
-            normalizar_ocr_texto(texto),
+            normalizar_ocr_texto(
+                texto
+            ),
             flags=re.IGNORECASE
         ).strip()
 
@@ -1607,8 +1715,6 @@ def extraer_por_etiqueta(
             ):
 
                 return value
-
-        # Después línea inferior
 
         for siguiente in obtener_linea_inferior(
             lineas,
@@ -1626,6 +1732,7 @@ def extraer_por_etiqueta(
             if encontrar_cualquier_etiqueta(
                 texto
             ):
+
                 continue
 
             value = limpiar_texto(
@@ -1709,11 +1816,6 @@ def detectar_lado_cedula(
         REVERSO
 
     No depende del número de página.
-
-    Esto permite trabajar incluso si:
-
-        página 1 = reverso
-        página 2 = anverso
     """
 
     texto_total = " ".join(
@@ -2021,9 +2123,6 @@ def procesar_por_etiquetas(
         len(lineas)
     )
 
-    # Guardar en log todas las líneas detectadas.
-    # Esto será muy importante durante las pruebas.
-
     for i, linea in enumerate(
         lineas
     ):
@@ -2145,8 +2244,6 @@ def puntuar_resultado(
     if origen == "etiqueta":
         score += 10
 
-    # Validaciones específicas
-
     if field == "numero_documento":
 
         if re.fullmatch(
@@ -2182,6 +2279,171 @@ def puntuar_resultado(
         score += 30
 
     return score
+
+
+# ============================================================
+# COMPARAR OCR GENERAL VS OCR POR CROP
+# ============================================================
+
+def comparar_resultados_ocr(
+    general,
+    crop,
+    field,
+    lado
+):
+    """
+    Compara el resultado obtenido por OCR general
+    contra el resultado obtenido mediante CROP.
+
+    REGLA:
+
+    1. General válido + CROP válido:
+       - Si coinciden -> resultado confirmado.
+       - Si difieren -> se conserva GENERAL.
+
+    2. General válido + CROP inválido:
+       - Se conserva GENERAL.
+
+    3. General inválido + CROP válido:
+       - Se utiliza CROP.
+
+    4. Ninguno válido:
+       - Resultado None.
+    """
+
+    general_valido = validar_campo_ocr(
+        field,
+        general
+    )
+
+    crop_valido = validar_campo_ocr(
+        field,
+        crop
+    )
+
+    # ========================================================
+    # AMBOS VÁLIDOS
+    # ========================================================
+
+    if general_valido and crop_valido:
+
+        general_norm = normalizar_ocr_texto(
+            general
+        )
+
+        crop_norm = normalizar_ocr_texto(
+            crop
+        )
+
+        coinciden = (
+            general_norm == crop_norm
+        )
+
+        if coinciden:
+
+            logger.info(
+                "OCR_COMPARACION_OK | "
+                "lado=%s | campo=%s | "
+                "general=%r | crop=%r | "
+                "resultado=%r",
+                lado,
+                field,
+                general,
+                crop,
+                general
+            )
+
+        else:
+
+            logger.warning(
+                "OCR_COMPARACION_CONFLICTO | "
+                "lado=%s | campo=%s | "
+                "general=%r | crop=%r | "
+                "SE_CONSERVA_GENERAL=%r",
+                lado,
+                field,
+                general,
+                crop,
+                general
+            )
+
+        return {
+            "value": general,
+            "origen": "OCR_GENERAL",
+            "general_valido": True,
+            "crop_valido": True,
+            "coinciden": coinciden,
+        }
+
+    # ========================================================
+    # SOLO GENERAL VÁLIDO
+    # ========================================================
+
+    if general_valido:
+
+        logger.info(
+            "OCR_GENERAL_VALIDO | "
+            "lado=%s | campo=%s | "
+            "general=%r | crop=%r",
+            lado,
+            field,
+            general,
+            crop
+        )
+
+        return {
+            "value": general,
+            "origen": "OCR_GENERAL",
+            "general_valido": True,
+            "crop_valido": False,
+            "coinciden": False,
+        }
+
+    # ========================================================
+    # SOLO CROP VÁLIDO
+    # ========================================================
+
+    if crop_valido:
+
+        logger.warning(
+            "OCR_CROP_RECUPERACION | "
+            "lado=%s | campo=%s | "
+            "general=%r | crop=%r",
+            lado,
+            field,
+            general,
+            crop
+        )
+
+        return {
+            "value": crop,
+            "origen": "OCR_CROP",
+            "general_valido": False,
+            "crop_valido": True,
+            "coinciden": False,
+        }
+
+    # ========================================================
+    # NINGUNO VÁLIDO
+    # ========================================================
+
+    logger.warning(
+        "OCR_SIN_RESULTADO_VALIDO | "
+        "lado=%s | campo=%s | "
+        "general=%r | crop=%r",
+        lado,
+        field,
+        general,
+        crop
+    )
+
+    return {
+        "value": None,
+        "origen": "NINGUNO",
+        "general_valido": False,
+        "crop_valido": False,
+        "coinciden": False,
+    }
 
 
 # ============================================================
@@ -2224,10 +2486,6 @@ def combinar_resultados(
             "etiqueta"
         )
 
-        # ====================================================
-        # REGLA PRINCIPAL
-        # ====================================================
-
         if (
             score_etiqueta
             >
@@ -2241,11 +2499,6 @@ def combinar_resultados(
 
             elegido = valor_coord
             origen = "COORDENADAS"
-
-        # ====================================================
-        # CASO ESPECIAL:
-        # coordenada inválida y etiqueta válida
-        # ====================================================
 
         if (
             not valor_coord
@@ -2314,16 +2567,19 @@ def combinar_resultados(
 
     return resultado
 
+
 # ============================================================
 # PDF DIGITAL
 # ============================================================
 
-def extract_fields_from_text(text):
+def extract_fields_from_text(
+    text
+):
 
     results = {}
 
     if not text:
-        return results 
+        return results
 
     # --------------------------------------------------------
     # DOCUMENTO
@@ -2336,11 +2592,9 @@ def extract_fields_from_text(text):
 
     if match:
 
-        results["numero_documento"] = (
-            match.group(1)
-            if match
-        else None
-    )
+        results[
+            "numero_documento"
+        ] = match.group(1)
 
     # --------------------------------------------------------
     # NOMBRE
@@ -2354,14 +2608,18 @@ def extract_fields_from_text(text):
     )
 
     if match:
-        results["nombre_completo"] = (
-            limpiar_texto(
-                match.group(1).strip()
-            )
+
+        results[
+            "nombre_completo"
+        ] = limpiar_texto(
+            match.group(1).strip()
         )
+
     else:
-        results["nombre_completo"] = None
-    
+
+        results[
+            "nombre_completo"
+        ] = None
 
     # --------------------------------------------------------
     # FECHA
@@ -2373,14 +2631,18 @@ def extract_fields_from_text(text):
     )
 
     if match:
-        results["fecha_nacimiento"] = (
-            limpiar_fecha(
-                match.group(1)
-            )
+
+        results[
+            "fecha_nacimiento"
+        ] = limpiar_fecha(
+            match.group(1)
         )
+
     else:
-        results["fecha_nacimiento"] = None
-    
+
+        results[
+            "fecha_nacimiento"
+        ] = None
 
     # --------------------------------------------------------
     # SEXO
@@ -2393,13 +2655,18 @@ def extract_fields_from_text(text):
     )
 
     if match:
-        results["sexo"] = (
-            limpiar_sexo(
-                match.group(2)
-            )
+
+        results[
+            "sexo"
+        ] = limpiar_sexo(
+            match.group(2)
         )
+
     else:
-        results["sexo"] = None
+
+        results[
+            "sexo"
+        ] = None
 
     # --------------------------------------------------------
     # LUGAR
@@ -2415,12 +2682,10 @@ def extract_fields_from_text(text):
 
     if match:
 
-        results["lugar_nacimiento"] = (
-            limpiar_texto(
-                match.group(1).strip()
-            )
-            if match
-            else None
+        results[
+            "lugar_nacimiento"
+        ] = limpiar_texto(
+            match.group(1).strip()
         )
 
     # --------------------------------------------------------
@@ -2435,14 +2700,18 @@ def extract_fields_from_text(text):
     )
 
     if match:
-        results["nacionalidad"] = (
-            limpiar_texto(
-                match.group(2).strip()
-            )
+
+        results[
+            "nacionalidad"
+        ] = limpiar_texto(
+            match.group(2).strip()
         )
+
     else:
-        results["nacionalidad"] = None
-    
+
+        results[
+            "nacionalidad"
+        ] = None
 
     # --------------------------------------------------------
     # RH
@@ -2457,12 +2726,10 @@ def extract_fields_from_text(text):
 
     if match:
 
-        results["tipo_sangre"] = (
-            limpiar_rh(
-                match.group(2)
-            )
-            if match
-            else None
+        results[
+            "tipo_sangre"
+        ] = limpiar_rh(
+            match.group(2)
         )
 
     return results
@@ -2472,7 +2739,9 @@ def extract_fields_from_text(text):
 # RESULTADO ÚTIL
 # ============================================================
 
-def _resultado_util(results):
+def _resultado_util(
+    results
+):
 
     if not results:
         return False
@@ -2489,7 +2758,9 @@ def _resultado_util(results):
 
     return (
         sum(
-            bool(results.get(k))
+            bool(
+                results.get(k)
+            )
             for k in principales
         )
         >= 2
@@ -2500,7 +2771,9 @@ def _resultado_util(results):
 # RESULTADO FINAL
 # ============================================================
 
-def normalizar_resultado_final(results):
+def normalizar_resultado_final(
+    results
+):
 
     campos = [
         "numero_documento",
@@ -2518,12 +2791,19 @@ def normalizar_resultado_final(results):
 
     for campo in campos:
 
-        valor = results.get(campo)
+        valor = results.get(
+            campo
+        )
 
         if valor is None:
+
             resultado[campo] = ""
+
         else:
-            resultado[campo] = str(valor).strip()
+
+            resultado[campo] = (
+                str(valor).strip()
+            )
 
     return resultado
 
@@ -2537,7 +2817,7 @@ def extract_fields(
     modelo="hologramas"
 ):
     """
-      Procesa las dos primeras páginas utilizando DOS mecanismos:
+    Procesa las dos primeras páginas utilizando DOS mecanismos:
 
     1. Lectura estructural por texto / etiquetas / líneas / columnas.
     2. OCR por coordenadas.
@@ -2556,6 +2836,14 @@ def extract_fields(
 
     results = {}
 
+    # Resultados obtenidos por OCR GENERAL.
+    # Esta será nuestra fuente principal.
+    general_results = {}
+
+    # Resultados obtenidos mediante OCR por CROP.
+    # Esta será nuestra fuente secundaria/verificadora.
+    crop_results = {}
+
     # --------------------------------------------------------
     # DIRECTORIO DEBUG
     # --------------------------------------------------------
@@ -2572,7 +2860,9 @@ def extract_fields(
 
     try:
 
-        with pdfplumber.open(file_path) as pdf:
+        with pdfplumber.open(
+            file_path
+        ) as pdf:
 
             if not pdf.pages:
 
@@ -2611,12 +2901,13 @@ def extract_fields(
                         )
                     )
 
-                   
                     # ------------------------------------------------
                     # COMBINAR RESULTADOS DE TEXTO
                     # ------------------------------------------------
 
-                    for key, value in text_results.items():
+                    for key, value in (
+                        text_results.items()
+                    ):
 
                         if (
                             value
@@ -2628,15 +2919,6 @@ def extract_fields(
                         ):
 
                             results[key] = value
-
-                    # =================================================
-                    # IMPORTANTE:
-                    #
-                    # NO HACER "continue".
-                    #
-                    # Aunque el texto haya encontrado datos,
-                    # SIEMPRE continuamos hacia coordenadas.
-                    # =================================================
 
                     logger.info(
                         "Página %s: resultados obtenidos "
@@ -2659,7 +2941,9 @@ def extract_fields(
                     resolution=300
                 ).original
 
-                img_np = np.array(img)
+                img_np = np.array(
+                    img
+                )
 
                 logger.info(
                     "Página %s | imagen original=%s",
@@ -2728,10 +3012,10 @@ def extract_fields(
 
                 logger.info(
                     "OCR_LADO_FINAL | "
-                        "pagina=%s | lado=%s",
-                        page_number,
-                        lado
-                    )
+                    "pagina=%s | lado=%s",
+                    page_number,
+                    lado
+                )
 
                 etiqueta_results = (
                     procesar_por_etiquetas(
@@ -2742,7 +3026,9 @@ def extract_fields(
                     )
                 )
 
-                for key, value in etiqueta_results.items():
+                for key, value in (
+                    etiqueta_results.items()
+                ):
 
                     if (
                         value
@@ -2752,10 +3038,15 @@ def extract_fields(
                         )
                     ):
 
-                        if not results.get(key):
+                        general_results[key] = value
 
-                            results[key] = value              
-
+                        logger.info(
+                            "OCR_GENERAL_RESULTADO | "
+                            "pagina=%s | campo=%s | valor=%s",
+                            page_number,
+                            key,
+                            value
+                        )
 
                 # ====================================================
                 # 4. SELECCIONAR PLANTILLA
@@ -2981,53 +3272,145 @@ def extract_fields(
                         )
 
                         # ====================================================
-                        # COMBINACIÓN:
-                        #
-                        # Si coordenadas encuentran un valor válido,
-                        # lo usamos.
-                        #
-                        # Si no encuentran nada, conservamos el valor
-                        # obtenido por etiquetas/líneas.
+                        # LIMPIEZA CROP
                         # ====================================================
 
                         if clean:
 
-                            results[field] = clean
+                            crop_results[field] = clean
 
-                        elif field not in results:
+                            logger.info(
+                                "OCR_CROP_RESULTADO | "
+                                "pagina=%s | campo=%s | valor=%s",
+                                page_number,
+                                field,
+                                clean
+                            )
 
-                            results[field] = None
+                        else:
+
+                            logger.info(
+                                "OCR_CROP_SIN_RESULTADO | "
+                                "pagina=%s | campo=%s",
+                                page_number,
+                                field
+                            )
 
                     except Exception as e:
 
                         logger.exception(
-                            "Error OCR campo %s "
-                            "página %s: %s",
-                            field,
+                            "OCR_CROP_ERROR | "
+                            "pagina=%s | campo=%s | error=%s",
                             page_number,
+                            field,
                             e
                         )
 
-                        # IMPORTANTE:
-                        # No borrar un resultado que ya pudo obtenerse
-                        # mediante etiquetas/líneas.
+                        # El OCR por CROP falló.
+                        # NO modificamos el resultado obtenido
+                        # por OCR general / etiquetas.
 
-                        if field not in results:
+                        logger.info(
+                            "OCR_CROP_ERROR | "
+                            "pagina=%s | campo=%s | "
+                            "se conserva OCR general",
+                            page_number,
+                            field
+                        )
 
-                            results[field] = None
+                # ====================================================
+                # 5.5. COMPARAR OCR GENERAL VS OCR POR CROP
+                #
+                # IMPORTANTE:
+                #
+                # Este bloque está FUERA del:
+                #
+                #     for field, coords in zones.items():
+                #
+                # Primero terminamos TODOS los crops.
+                # Después comparamos los resultados.
+                # ====================================================
+
+                campos_comparacion = set(
+                    list(general_results.keys())
+                    +
+                    list(crop_results.keys())
+                )
+
+                for field in campos_comparacion:
+
+                    valor_general = general_results.get(
+                        field
+                    )
+
+                    valor_crop = crop_results.get(
+                        field
+                    )
+
+                    comparacion = comparar_resultados_ocr(
+                        valor_general,
+                        valor_crop,
+                        field,
+                        lado
+                    )
+
+                    resultado = comparacion.get(
+                        "value"
+                    )
+
+                    if resultado:
+
+                        results[field] = resultado
+
+                    else:
+
+                        results[field] = None
+
+                    logger.info(
+                        "OCR_DECISION_FINAL | "
+                        "pagina=%s | lado=%s | campo=%s | "
+                        "general=%r | crop=%r | "
+                        "elegido=%r | origen=%s | "
+                        "general_valido=%s | "
+                        "crop_valido=%s | "
+                        "coinciden=%s",
+                        page_number,
+                        lado,
+                        field,
+                        valor_general,
+                        valor_crop,
+                        resultado,
+                        comparacion.get(
+                            "origen"
+                        ),
+                        comparacion.get(
+                            "general_valido"
+                        ),
+                        comparacion.get(
+                            "crop_valido"
+                        ),
+                        comparacion.get(
+                            "coinciden"
+                        )
+                    )
 
                 # ====================================================
                 # 6. RECONSTRUIR NOMBRE COMPLETO
                 # ====================================================
 
                 if (
-                    results.get("apellidos")
-                    and results.get("nombres")
+                    crop_results.get(
+                        "apellidos"
+                    )
+                    and
+                    crop_results.get(
+                        "nombres"
+                    )
                 ):
 
                     nombre_completo = limpiar_texto(
-                        f"{results['apellidos']} "
-                        f"{results['nombres']}"
+                        f"{crop_results['apellidos']} "
+                        f"{crop_results['nombres']}"
                     )
 
                     if validar_campo_ocr(
