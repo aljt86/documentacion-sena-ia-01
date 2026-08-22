@@ -447,7 +447,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         # todavía la transacción.
         # --------------------------------------------------
 
-        db.flus()
+        db.flush()
 
         logger.info(
             "POSTGRESQL_FLUSH_OK | "
@@ -663,7 +663,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
     
     except Exception as e:
 
-        db.rolback()
+        db.rollback()
 
         logger.exception(
             "❌ ERROR_OCR_POSTGRESQL | "
