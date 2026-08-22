@@ -266,7 +266,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         # DATOS OCR
         # ==================================================
 
-        nuevo_doc = (datos.get("numero_documento") or "").strip()
+        numero_doc = (datos.get("numero_documento") or "").strip()
         apellidos = (datos.get("apellidos") or "").strip()
         nombres = (datos.get("nombres") or "").strip()
         nombre_completo = (datos.get("nombre_completo") or f"{apellidos} {nombres}".strip())
@@ -292,7 +292,8 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         # ==================================================
                 
         if not numero_doc:
-           logger.warning("OCR no capturГó número de documento, no se guardará en BD")
+           logger.warning("OCR sin número de documento." "Se continuará guardando el resto de los datos")
+           numero_doc = None 
            return
 
         # ==================================================
@@ -312,7 +313,10 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         # BUSCAR ESTUDIANTE
         # ==================================================
 
-        estudiante = (db.query(Estudiante).filter(Estudiante.NumeroDocumento == numero_doc).first())
+        estudiante = None
+
+        if numero_doc:
+            estudiante = (db.query(Estudiante).filter(Estudiante.NumeroDocumento == numero_doc).first())
 
         # ==================================================
         # CREAR O ACTUALIZAR ESTUDIANTE
@@ -436,37 +440,228 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         # GUARDAR TODO
         # ==================================================
 
-        db.commit()
+        logger.info("== INICIANDO GUARDADOEN POSTGRESQL ==")
 
-        db.refresh(nuevo_documento)
+        # --------------------------------------------------
+        # FLUSH
+        # Envía los INSERT a PostgreSQL sin cerrar
+        # todavía la transacción.
+        # --------------------------------------------------
+
+        db.flus()
 
         logger.info(
-            "✅ DOCUMENTO_GUARDADO | "
-            "DocumentoId=%s | "
+            "POSTGRESQL_FLUSH_OK | "
             "EstudianteId=%s | "
             "ProgramaId=%s | "
             "UsuarioId=%s",
-            nuevo_documento.Id,
             estudiante.Id,
             programa_db.id,
-            usuario_id
+            numero_documento.Id
         )
 
+        # --------------------------------------------------
+        # COMMIT
+        # Confirma definitivamente la transacción.
+        # --------------------------------------------------
+
+        db.commit()
+
+        logger.info(
+            "POSTGRESQL_COMMIT_OK | "
+            "Transacción confirmada correctamente"
+        )
+
+        # ==================================================
+        # REFRESCAR OBJETOS DESDE POSTGRESQL
+        # ==================================================
+
+        db.refresh(estudiante)
+        db.refresh(programa_db)
+        db.refresh(nuevo_documento)
+
+        logger.info(
+            "POSTGRESQL_REFRESH_OK | "
+            "Los objetos fueron actualizados desde PostgresSQL"
+        )
+
+        # ==================================================
+        # VERIFICAR TABLA ESTUDIANTE
+        # ==================================================
+
+        estudiante_bd = (db.query(Estudiante).filter(Estudiante.Id == estudiante.Id).first())
+
+        if estudiante_bd:
+            logger.info(
+                "ESTUDIANTE_VERIFICADO | "
+                "Id=%s | " 
+                "NumeroDocumento=%s | "
+                "NombreCompleto=%s | "
+                "FechaNacimiento=%s | "
+                "Sexo=%s | "
+                "LugarNacimiento=%s | "
+                "Nacionalidad=%s | "
+                "TipoSangre=%s | "
+                "Programa=%s | "
+                "UsuarioId=%s",
+                estudiante_bd.Id,
+                estudiante_bd.NumeroDocumento,
+                estudiante_bd.NombreCompleto,
+                estudiante_bd.FechaNacimiento,
+                estudiante_bd.Sexo,
+                estudiante_bd.LugarNacimiento,
+                estudiante_bd.Nacionalidad,
+                estudiante_bd.TipoSangre,
+                estudiante_bd.Programa,
+                estudiante_bd.UsuarioId
+            )
+        else:
+            logger.error(
+                "POSTGRESQL_ERROR_ESTUDIANTE_NO_ENCONTRADO | "
+                "EstudianteId=%s",
+                estudiante.Id,
+            )
+
+        # ==================================================
+        # VERIFICAR TABLA PROGRAMA
+        # ==================================================
+
+        programa_bd = (
+            db.query(Programa)
+            .filter(
+                Programa.id == programa_db.id
+            )
+            .first()
+        )
+
+        if programa_bd:
+
+            logger.info(
+                "POSTGRESQL_PROGRAMA_INSERTADO | "
+                "Id=%s | "
+                "Nombre=%r",
+                programa_bd.id,
+                programa_bd.nombre
+            )
+
+        else:
+
+            logger.error(
+                "POSTGRESQL_ERROR_PROGRAMA_NO_ENCONTRADO | "
+                "ProgramaId=%s",
+                programa_db.id
+            )
+
+        # ==================================================
+        # VERIFICAR TABLA DOCUMENTO
+        # ==================================================
+
+        documento_bd = (
+            db.query(Documento)
+            .filter(
+                Documento.Id == nuevo_documento.Id
+            )
+            .first()
+        )
+
+        if documento_bd:
+
+            logger.info(
+                "POSTGRESQL_DOCUMENTO_INSERTADO | "
+                "DocumentoId=%s | "
+                "EstudianteId=%s | "
+                "ProgramaId=%s | "
+                "UsuarioId=%s | "
+                "TipoDocumento=%r | "
+                "Archivo=%r",
+                documento_bd.Id,
+                documento_bd.EstudianteId,
+                documento_bd.ProgramaId,
+                documento_bd.UsuarioId,
+                documento_bd.TipoDocumento,
+                documento_bd.Archivo
+            )
+
+        else:
+
+            logger.error(
+                "POSTGRESQL_ERROR_DOCUMENTO_NO_ENCONTRADO | "
+                "DocumentoId=%s",
+                nuevo_documento.Id
+            )
+
+        # ==================================================
+        # CONFIRMACIÓN FINAL
+        # ==================================================
+
+        if (
+            estudiante_bd
+            and programa_bd
+            and documento_bd
+        ):
+
+            logger.info(
+                "=================================================="
+            )
+
+            logger.info(
+                "POSTGRESQL_GUARDADO_OK | "
+                "LOS DATOS FUERON GUARDADOS Y RECUPERADOS"
+            )
+
+            logger.info(
+                "ESTUDIANTE | "
+                "Id=%s | "
+                "NumeroDocumento=%r | "
+                "Nombre=%r | "
+                "Sexo=%r | "
+                "TipoSangre=%r",
+                estudiante_bd.Id,
+                estudiante_bd.NumeroDocumento,
+                estudiante_bd.NombreCompleto,
+                estudiante_bd.Sexo,
+                estudiante_bd.TipoSangre
+            )
+
+            logger.info(
+                "PROGRAMA | "
+                "Id=%s | "
+                "Nombre=%r",
+                programa_bd.id,
+                programa_bd.nombre
+            )
+
+            logger.info(
+                "DOCUMENTO | "
+                "Id=%s | "
+                "EstudianteId=%s | "
+                "ProgramaId=%s | "
+                "UsuarioId=%s",
+                documento_bd.Id,
+                documento_bd.EstudianteId,
+                documento_bd.ProgramaId,
+                documento_bd.UsuarioId
+            )
+
+            logger.info(
+                "=================================================="
+            )
+
+        else:
+
+            logger.error(
+                "POSTGRESQL_GUARDADO_ERROR | "
+                "No fue posible verificar uno o más registros"
+            )
+
+        # ==================================================
+        # FIN DEL PROCESAMIENTO
+        # ==================================================
+     
         logger.info(
             "=== OCR PRODUCCION: FIN ==="
         )
 
-    except Exception as e:
-
-        db.rollback()
-
-        logger.exception(
-            "❌ Error en OCR en segundo plano: %s",
-            e
-        )
-
-    finally:
-        db.close()
 
 # ============================================
 # MODELOS PYDANTIC PARA REGISTRO Y LOGIN
