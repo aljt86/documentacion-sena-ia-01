@@ -660,7 +660,27 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         logger.info(
             "=== OCR PRODUCCION: FIN ==="
         )
+    
+    except Exception as e:
 
+        db.rolback()
+
+        logger.exception(
+            "❌ ERROR_OCR_POSTGRESQL | "
+            "Error en OCR en segundo plano: %s",
+            e
+        )
+
+    finally:
+
+        db.close()
+
+        logger.info(
+            "POSTGRESQL_SESION_CERRADA | "
+            "UsuarioId=%s | Programa=%s",
+            usuario_id,
+            programa
+        )
 
 # ============================================
 # MODELOS PYDANTIC PARA REGISTRO Y LOGIN
