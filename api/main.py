@@ -27,7 +27,12 @@ from app.ocr import procesar_pdf
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.db import engine, Base, get_db, SessionLocal
-from api.models import Usuario, Documento, Estudiante 
+from api.models import (
+    Usuario, 
+    Documento, 
+    Estudiante,
+    Programa
+) 
 
 # ============================================
 # CONFIGURACIÓN DE LOGGING
@@ -39,31 +44,6 @@ logger = logging.getLogger(__name__)
 # CREAR TABLAS (si no existen)
 # ============================================
 Base.metadata.create_all(bind=engine)
-
-# ============================================
-# VERIFICAR Y AGREGAR COLUMNA UsuarioId SI NO EXISTE
-# ============================================
-try:
-    with engine.connect() as conn:
-        # Verificar si la columna UsuarioId existe en la tabla documentos
-        result = conn.execute(text(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'documentos' AND column_name = 'UsuarioId'"
-        ))
-        if not result.fetchone():
-            logger.warning("вљ пёЏ Columna UsuarioId no encontrada en 'documentos'. Agregando...")
-            conn.execute(text('ALTER TABLE documentos ADD COLUMN "UsuarioId" INTEGER'))
-            conn.execute(text('ALTER TABLE documentos ALTER COLUMN "UsuarioId" SET NOT NULL'))
-            conn.execute(text(
-                'ALTER TABLE documentos ADD CONSTRAINT fk_documentos_usuarios '
-                'FOREIGN KEY ("UsuarioId") REFERENCES usuarios("Id")'
-            ))
-            conn.commit()
-            logger.info("вњ… Columna UsuarioId agregada correctamente")
-        else:
-            logger.info("вњ… Columna UsuarioId ya existe en 'documentos'")
-except Exception as e:
-    logger.error(f"вљ пёЏ Error al verificar/agregar UsuarioId: {e}")
 
 # ============================================
 # APLICACIГ“N FASTAPI
@@ -114,9 +94,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def home():
     return {"mensaje": "API OCR 2.0 funcionando correctamente"}
 
-# ============================================
-# ENDPOINT: DESCARGAR CROPS DEL OCR
-# ============================================
 # ============================================
 # ENDPOINT: DESCARGAR CROPS DEL OCR
 # ============================================
@@ -254,11 +231,16 @@ def descargar_crop(programa: str, filename: str):
 # ============================================
 def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int):
     db = SessionLocal()
+
     try:
-        logger.info(f"рџ”Ќ Procesando OCR para: {file_path}")
+        logger.info("🔍 Procesando OCR para: %s", file_path)
         logger.info("=== OCR PRODUCCION: INICIO ===")
         logger.info("Archivo: %s", file_path)
         logger.info("Programa: %s | UsuarioId: %s", programa, usuario_id)
+
+        # ==================================================
+        # OCR
+        # ==================================================
 
         resultado_ocr = procesar_documento(file_path)
         logger.info("OCR_RESULTADO: %s", resultado_ocr)
@@ -271,62 +253,218 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         logger.info("OCR_METODO: %s", resultado_ocr.get("metodo"))
         logger.info("OCR_DATOS: %s", datos)
 
-        # Compatibilidad entre parser.py y el modelo SQL.
-        if not datos.get("tipo_sangre") and datos.get("rh"):
+        # ==================================================
+        # NORMALIZAR TIPO DE SANGRE
+        # ==================================================
+
+        if (
+            not datos.get("tipo_sangre") and datos.get("rh")
+        ):  
             datos["tipo_sangre"] = datos["rh"]
+
+        # ==================================================
+        # DATOS OCR
+        # ==================================================
+
+        nuevo_doc = (datos.get("numero_documento") or "").strip()
+        apellidos = (datos.get("apellidos") or "").strip()
+        nombres = (datos.get("nombres") or "").strip()
+        nombre_completo = (datos.get("nombre_completo") or f"{apellidos} {nombres}".strip())
+        fecha_nacimiento = (datos.get("fecha_nacimiento") or "")
+        sexo = (datos.get("sexo") or "")
+        lugar_nacimiento = (datos.get("lugar_nacimiento") or "")
+        nacionalidad = (datos.get("nacionalidad") or "")
+        tipo_sangre = (datos.get("tipo_sangre") or "")
 
         logger.info(
             "OCR_CAMPOS | numero=%r | nombre=%r | fecha=%r | sexo=%r | lugar=%r | nacionalidad=%r | rh=%r",
-            datos.get("numero_documento"),
-            datos.get("nombre_completo"),
-            datos.get("fecha_nacimiento"),
-            datos.get("sexo"),
-            datos.get("lugar_nacimiento"),
-            datos.get("nacionalidad"),
-            datos.get("tipo_sangre") or datos.get("rh"),
+            numero_doc,
+            nombre_completo,
+            fecha_nacimiento,
+            sexo,
+            lugar_nacimiento,
+            nacionalidad,
+            tipo_sangre
         )
-         # Validar duplicado por NumeroDocumento
-        numero_doc = datos.get("numero_documento", "").strip()
+
+        # ==================================================
+        # VALIDAR NUMERO DE DOCUMENTO
+        # ==================================================
+                
         if not numero_doc:
-           logger.warning("вљ пёЏ OCR no capturГі nГєmero de documento, no se insertarГЎ en BD")
-           return # aquГ- puedes guardar en tabla de pendientes si quieres
-
-        # Construir nombre completo de forma segura
-        nombre_completo = datos.get("nombre_completo") or f"{datos.get('apellidos','')} {datos.get('nombres','')}".strip()
-
-        existing = db.query(Documento).filter(Documento.NumeroDocumento == numero_doc).first()
-        if existing:
-            # actualizar en vez de ignorar
-           existing.NombreCompleto = nombre_completo
-           existing.FechaNacimiento = datos.get("fecha_nacimiento", "")
-           existing.Sexo = datos.get("sexo", "")
-           existing.LugarNacimiento = datos.get("lugar_nacimiento", "")
-           existing.Nacionalidad = datos.get("nacionalidad", "")
-           existing.TipoSangre = datos.get("tipo_sangre", "")
-           existing.Programa = programa
-           db.commit()
-           db.refresh(existing)
-           logger.info(f"рџ”„ Documento actualizado en BD con ID: {existing.Id}")
+           logger.warning("OCR no capturГó número de documento, no se guardará en BD")
            return
 
-        nuevo_doc = Documento(
-           UsuarioId=usuario_id,
-           NumeroDocumento=datos.get("numero_documento", ""),
-           NombreCompleto=nombre_completo,
-           FechaNacimiento=datos.get("fecha_nacimiento", ""),
-           Sexo=datos.get("sexo", ""),
-           LugarNacimiento=datos.get("lugar_nacimiento", ""),
-           Nacionalidad=datos.get("nacionalidad", ""),
-           TipoSangre=datos.get("tipo_sangre", ""),
-           Programa=programa
-       )
-        db.add(nuevo_doc)
+        # ==================================================
+        # VALIDAR USUARIO
+        # ==================================================
+
+        usuario = (db.query(Usuario).filter(Usuario.Id == usuario_id).first())
+
+        if not usuario:
+            logger.error(
+                "USUARIO_NO_EXISTE | UsuarioId=%s",
+                usuario_id
+            )
+            return
+
+        # ==================================================
+        # BUSCAR ESTUDIANTE
+        # ==================================================
+
+        estudiante = (db.query(Estudiante).filter(Estudiante.NumeroDocumento == numero_doc).first())
+
+        # ==================================================
+        # CREAR O ACTUALIZAR ESTUDIANTE
+        # ==================================================
+
+        if estudiante:
+
+            logger.info(
+                "ESTUDIANTE_EXISTENTE | "
+                "Id=%s | NumeroDocumento=%s",
+                estudiante.Id,
+                numero_doc
+            )
+
+            estudiante.NombreCompleto = (
+                nombre_completo
+                or estudiante.NombreCompleto
+            )
+
+            estudiante.FechaNacimiento = (
+                fecha_nacimiento
+                or estudiante.FechaNacimiento
+            )
+
+            estudiante.Sexo = (
+                sexo
+                or estudiante.Sexo
+            )
+
+            estudiante.LugarNacimiento = (
+                lugar_nacimiento
+                or estudiante.LugarNacimiento
+            )
+
+            estudiante.Nacionalidad = (
+                nacionalidad
+                or estudiante.Nacionalidad
+            )
+
+            estudiante.TipoSangre = (
+                tipo_sangre
+                or estudiante.TipoSangre
+            )
+
+            estudiante.Programa = programa
+
+            # IMPORTANTE:
+            # UsuarioId aquí representa quién registró/
+            # procesó originalmente al estudiante.
+            # No modificamos el UsuarioId de un estudiante
+            # existente solamente porque otro usuario
+            # suba nuevamente su documento.
+
+        else:
+
+            estudiante = Estudiante(
+                NumeroDocumento=numero_doc,
+                NombreCompleto=nombre_completo,
+                FechaNacimiento=fecha_nacimiento,
+                Sexo=sexo,
+                LugarNacimiento=lugar_nacimiento,
+                Nacionalidad=nacionalidad,
+                TipoSangre=tipo_sangre,
+                Programa=programa,
+                UsuarioId=usuario_id
+            )
+
+            db.add(estudiante)
+
+            db.flush()
+
+            logger.info(
+                "ESTUDIANTE_CREADO | "
+                "Id=%s | NumeroDocumento=%s",
+                estudiante.Id,
+                numero_doc
+            )
+
+        # ==================================================
+        # BUSCAR PROGRAMA
+        # ==================================================
+
+        programa_db = (db.query(Programa).filter(Programa.nombre == programa).first())
+
+        # ==================================================
+        # CREAR PROGRAMA SI NO EXISTE
+        # ==================================================
+
+        if not programa_db:
+
+            programa_db = Programa(
+                nombre=programa
+            )
+
+            db.add(programa_db)
+
+            db.flush()
+
+            logger.info(
+                "PROGRAMA_CREADO | Id=%s | nombre=%s",
+                programa_db.id,
+                programa
+            )
+
+        # ==================================================
+        # CREAR DOCUMENTO
+        # ==================================================
+
+        nuevo_documento = Documento(
+            EstudianteId=estudiante.Id,
+            ProgramaId=programa_db.id,
+            UsuarioId=usuario_id,
+            TipoDocumento="Cedula",
+            Archivo=file_path,
+            FechaSubida=datetime.now()
+        )
+
+        db.add(nuevo_documento)
+
+        # ==================================================
+        # GUARDAR TODO
+        # ==================================================
+
         db.commit()
-        db.refresh(nuevo_doc)
-        logger.info(f"вњ… Documento guardado en BD con ID: {nuevo_doc.Id}")
+
+        db.refresh(nuevo_documento)
+
+        logger.info(
+            "✅ DOCUMENTO_GUARDADO | "
+            "DocumentoId=%s | "
+            "EstudianteId=%s | "
+            "ProgramaId=%s | "
+            "UsuarioId=%s",
+            nuevo_documento.Id,
+            estudiante.Id,
+            programa_db.id,
+            usuario_id
+        )
+
+        logger.info(
+            "=== OCR PRODUCCION: FIN ==="
+        )
+
     except Exception as e:
-        logger.error(f"вќЊ Error en OCR en segundo plano: {e}")
+
         db.rollback()
+
+        logger.exception(
+            "❌ Error en OCR en segundo plano: %s",
+            e
+        )
+
     finally:
         db.close()
 
@@ -376,7 +514,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         db.add(nuevo)
         db.commit()
         db.refresh(nuevo)
-        logger.info(f"вњ… Usuario registrado: ID {nuevo.Id}, Email {nuevo.Email}")
+        logger.info(f"✅ Usuario registrado: ID {nuevo.Id}, Email {nuevo.Email}")
         return {"mensaje": "Usuario registrado correctamente", "usuario_id": nuevo.Id}
     except HTTPException:
        raise
