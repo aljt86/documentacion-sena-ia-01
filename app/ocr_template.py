@@ -2858,6 +2858,8 @@ def extract_fields(
         debug_dir
     )
 
+    OCR_RENDER_DPI = int(os.getenv("OCR_RENDER_DPI", 300))
+
     try:
 
         with pdfplumber.open(
@@ -2938,7 +2940,7 @@ def extract_fields(
                 )
 
                 img = page.to_image(
-                    resolution=300
+                    resolution=OCR_RENDER_DPI
                 ).original
 
                 img_np = np.array(
