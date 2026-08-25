@@ -518,36 +518,200 @@ def procesar_documento(pdf_path):
     """
     Único punto de entrada del procesamiento documental.
 
-    1. Intenta extracción de texto del PDF.
-    2. Si no es suficiente, delega el escaneo a ocr_template.py.
+    1. Intenta extraer texto del PDF.
+    2. Ejecuta SIEMPRE el OCR avanzado.
+    3. Combina ambos resultados.
+    4. El OCR tiene prioridad sobre el texto embebido.
     """
+
     try:
+
+        # ====================================================
+        # 1. EXTRAER TEXTO EMBEBIDO DEL PDF
+        # ====================================================
+
         texto_total = ""
 
         with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text() or ""
+
+            for page in pdf.pages[:2]:
+
+                page_text = (
+                    page.extract_text()
+                    or ""
+                )
+
                 if page_text.strip():
-                    texto_total += page_text + "\n"
+
+                    texto_total += (
+                        page_text
+                        + "\n"
+                    )
+
+        datos_texto = {}
 
         if texto_total.strip():
-            datos_texto = extraer_campos_por_lineas(texto_total)
-            if _resultado_util(datos_texto):
-                return {"resultado": datos_texto, "metodo": "pdf_texto"}
+
+            try:
+
+                datos_texto = (
+                    extraer_campos_por_lineas(
+                        texto_total
+                    )
+                )
+
+                logger.info(
+                    "PARSER_TEXTO_RESULTADO | %s",
+                    datos_texto
+                )
+
+            except Exception as e:
+
+                logger.exception(
+                    "PARSER_TEXTO_ERROR | %s",
+                    e
+                )
+
+                datos_texto = {}
+
+        # ====================================================
+        # 2. EJECUTAR OCR AVANZADO
+        # ====================================================
 
         # Importación tardía para evitar dependencias circulares.
         from app.ocr_template import extract_fields
 
-        datos_ocr = extract_fields(pdf_path)
+        datos_ocr = extract_fields(
+            pdf_path
+        )
 
-        if datos_ocr:
-            return {"resultado": datos_ocr, "metodo": "ocr_template"}
+        logger.info(
+            "PARSER_OCR_RESULTADO | %s",
+            datos_ocr
+        )
 
-        return {"error": "El documento no se pudo leer correctamente."}
+        if not datos_ocr:
+            datos_ocr = {}
+
+        # ====================================================
+        # 3. COMBINAR RESULTADOS
+        #
+        # OCR = PRIORIDAD
+        # TEXTO PDF = RESPALDO
+        # ====================================================
+
+        resultado = {}
+
+        campos = [
+            "numero_documento",
+            "apellidos",
+            "nombres",
+            "nombre_completo",
+            "fecha_nacimiento",
+            "sexo",
+            "lugar_nacimiento",
+            "nacionalidad",
+            "tipo_sangre",
+        ]
+
+        for campo in campos:
+
+            valor_ocr = datos_ocr.get(
+                campo
+            )
+
+            valor_texto = datos_texto.get(
+                campo
+            )
+
+            if valor_ocr:
+
+                resultado[campo] = valor_ocr
+
+            elif valor_texto:
+
+                resultado[campo] = valor_texto
+
+            else:
+
+                resultado[campo] = ""
+
+        # ====================================================
+        # 4. RECONSTRUIR NOMBRE COMPLETO
+        # ====================================================
+
+        if not resultado.get(
+            "nombre_completo"
+        ):
+
+            nombres = (
+                resultado.get(
+                    "nombres",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            apellidos = (
+                resultado.get(
+                    "apellidos",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            if nombres or apellidos:
+
+                resultado[
+                    "nombre_completo"
+                ] = (
+                    f"{nombres} {apellidos}"
+                    .strip()
+                )
+
+        # ====================================================
+        # 5. COMPROBAR SI OBTUVIMOS INFORMACIÓN
+        # ====================================================
+
+        campos_validos = sum(
+            bool(
+                resultado.get(
+                    campo
+                )
+            )
+            for campo in campos
+        )
+
+        logger.info(
+            "PARSER_RESULTADO_FINAL | "
+            "campos_validos=%s | resultado=%s",
+            campos_validos,
+            resultado
+        )
+
+        if campos_validos == 0:
+
+            return {
+                "error": (
+                    "El documento no se pudo "
+                    "leer correctamente."
+                )
+            }
+
+        return {
+            "resultado": resultado,
+            "metodo": "texto+ocr_template"
+        }
 
     except Exception as e:
-        return {"error": f"Error procesando documento: {e}"}
 
+        logger.exception(
+            "PARSER_ERROR | %s",
+            e
+        )
 
-def extraer_campos(texto: str):
-    return extraer_campos_por_lineas(texto)
+        return {
+            "error": (
+                f"Error procesando documento: {e}"
+            )
+        }

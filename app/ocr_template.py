@@ -12,7 +12,13 @@ import pytesseract
 from PIL import Image
 
 from app.parser import detectar_y_recortar_cedula
-
+from app.limpieza_campos import (
+    limpiar_numero,
+    limpiar_texto,
+    limpiar_fecha,
+    limpiar_sexo,
+    limpiar_rh
+)
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +115,12 @@ zones_digital = {
 LABELS = {
 
     "numero_documento": [
+        "NUMERO DE DOCUMENTO",
+        "NÚMERO DE DOCUMENTO",
         "NUMERO",
         "NÚMERO",
         "NUM",
         "NUM.",
-        "NUMERO DE DOCUMENTO",
-        "DOCUMENTO",
         "IDENTIFICACION",
         "IDENTIFICACIÓN",
     ],
@@ -128,6 +134,8 @@ LABELS = {
     "nombres": [
         "NOMBRES",
         "NOMBRE",
+        "NOMBRES:",
+        "NOMBRE:",
         "NOMB",
         "NOM",
     ],
@@ -143,7 +151,6 @@ LABELS = {
         "LUGAR DE NACIMIENTO",
         "LUGAR DE NACIMIETO",
         "LUGAR NACIMIENTO",
-        "LUGAR",
     ],
 
     "nacionalidad": [
@@ -156,8 +163,10 @@ LABELS = {
         "G. S. RH",
         "GS RH",
         "G S RH",
-        "RH",
         "TIPO DE SANGRE",
+        "GRUPO SANGUINEO",
+        "GRUPO SANGUÍNEO",
+        "RH",
     ],
 
     "sexo": [
@@ -175,7 +184,6 @@ LABELS = {
         "FECHA EXPEDICIÓN",
     ],
 }
-
 
 # ============================================================
 # NORMALIZACIÓN DE TEXTO
@@ -245,183 +253,6 @@ def similitud_texto(a, b):
         a,
         b
     ).ratio()
-
-
-# ============================================================
-# LIMPIEZA
-# ============================================================
-
-def limpiar_numero(raw):
-
-    if not raw:
-        return None
-
-    digits = re.sub(
-        r"\D",
-        "",
-        str(raw)
-    )
-
-    return digits or None
-
-
-def limpiar_texto(raw):
-
-    if not raw:
-        return None
-
-    texto = re.sub(
-        r"[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]",
-        "",
-        str(raw)
-    )
-
-    texto = re.sub(
-        r"\s+",
-        " ",
-        texto
-    ).strip()
-
-    return texto.title() if texto else None
-
-
-def limpiar_fecha(raw):
-
-    if not raw:
-        return None
-
-    raw = str(raw).strip().upper()
-
-    meses = {
-        "ENE": "01",
-        "FEB": "02",
-        "MAR": "03",
-        "ABR": "04",
-        "MAY": "05",
-        "JUN": "06",
-        "JUL": "07",
-        "AGO": "08",
-        "SEP": "09",
-        "OCT": "10",
-        "NOV": "11",
-        "DIC": "12",
-    }
-
-    # --------------------------------------------------------
-    # Formato:
-    #
-    # 17-AGO-1990
-    # 17 AGO 1990
-    # 17/AGO/1990
-    # --------------------------------------------------------
-
-    m = re.search(
-        r"(\d{1,2})[-/\s]([A-ZÁÉÍÓÚ]{3})[-/\s](\d{4})",
-        raw
-    )
-
-    if m:
-
-        d, mes, year = m.groups()
-
-        mes_num = meses.get(
-            mes[:3]
-        )
-
-        if mes_num:
-
-            try:
-
-                fecha = datetime.strptime(
-                    f"{year}-{mes_num}-{d.zfill(2)}",
-                    "%Y-%m-%d"
-                )
-
-                return fecha.strftime(
-                    "%Y-%m-%d"
-                )
-
-            except ValueError:
-
-                return None
-
-    # --------------------------------------------------------
-    # Formato:
-    #
-    # 17/08/1990
-    # 17-08-1990
-    # --------------------------------------------------------
-
-    m = re.search(
-        r"(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})",
-        raw
-    )
-
-    if m:
-
-        d, mes, year = m.groups()
-
-        try:
-
-            fecha = datetime.strptime(
-                f"{year}-{mes.zfill(2)}-{d.zfill(2)}",
-                "%Y-%m-%d"
-            )
-
-            return fecha.strftime(
-                "%Y-%m-%d"
-            )
-
-        except ValueError:
-
-            return None
-
-    return None
-
-
-def limpiar_sexo(raw):
-
-    if not raw:
-        return None
-
-    rv = str(raw).strip().upper()
-
-    if rv.startswith("M"):
-        return "Masculino"
-
-    if rv.startswith("F"):
-        return "Femenino"
-
-    return None
-
-
-def limpiar_rh(raw):
-
-    if not raw:
-        return None
-
-    raw = str(raw).upper().replace(
-        " ",
-        ""
-    )
-
-    # OCR suele confundir O con 0.
-    raw = raw.replace(
-        "0",
-        "O"
-    )
-
-    m = re.search(
-        r"(AB|A|B|O)[+-]",
-        raw
-    )
-
-    return (
-        m.group(0)
-        if m
-        else None
-    )
-
 
 # ============================================================
 # VALIDACIÓN DE RESULTADOS OCR
@@ -531,17 +362,22 @@ def validar_campo_ocr(
         if not palabras:
             return False
 
-        if len(
-            value.replace(
-                " ",
-                ""
-            )
-        ) < 3:
-
+        # Debe contener únicamente letras, espacios,
+        # guiones o apóstrofes.
+        if not re.fullmatch(
+            r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+)*",
+            value
+        ):
             return False
 
-        return True
+        # Evitar resultados OCR absurdamente cortos.
+        if len(
+            value.replace(" ", "")
+        ) < 3:
+            return False
 
+        return True 
+    
     # --------------------------------------------------------
     # LUGAR / NACIONALIDAD
     # --------------------------------------------------------
@@ -566,7 +402,6 @@ def validar_campo_ocr(
         return True
 
     return True
-
 
 # ============================================================
 # DEBUG DE CROPS
@@ -707,6 +542,17 @@ def _ocr_field(
     crop,
     field
 ):
+    """
+    Ejecuta varias configuraciones de Tesseract y selecciona
+    el mejor resultado válido para el campo.
+
+    Antes:
+        devolvía siempre resultados[0].
+
+    Ahora:
+        evalúa todos los resultados y prioriza el que pueda
+        limpiarse y validarse correctamente.
+    """
 
     configs = {
 
@@ -717,6 +563,9 @@ def _ocr_field(
 
             "--oem 3 --psm 8 "
             "-c tessedit_char_whitelist=0123456789",
+
+            "--oem 3 --psm 6 "
+            "-c tessedit_char_whitelist=0123456789",
         ],
 
         "fecha_nacimiento": [
@@ -724,6 +573,8 @@ def _ocr_field(
             "--oem 3 --psm 7",
 
             "--oem 3 --psm 8",
+
+            "--oem 3 --psm 6",
         ],
 
         "sexo": [
@@ -733,15 +584,21 @@ def _ocr_field(
 
             "--oem 3 --psm 8 "
             "-c tessedit_char_whitelist=MF",
+
+            "--oem 3 --psm 7 "
+            "-c tessedit_char_whitelist=MF",
         ],
 
         "tipo_sangre": [
 
             "--oem 3 --psm 10 "
-            "-c tessedit_char_whitelist=ABO+−-",
+            "-c tessedit_char_whitelist=ABO+-",
 
             "--oem 3 --psm 8 "
-            "-c tessedit_char_whitelist=ABO+−-",
+            "-c tessedit_char_whitelist=ABO+-",
+
+            "--oem 3 --psm 7 "
+            "-c tessedit_char_whitelist=ABO+-",
         ],
     }
 
@@ -750,12 +607,13 @@ def _ocr_field(
         [
             "--oem 3 --psm 7",
             "--oem 3 --psm 8",
+            "--oem 3 --psm 6",
         ]
     )
 
-    resultados = []
+    candidatos = []
 
-    for config in field_configs:
+    for indice, config in enumerate(field_configs):
 
         try:
 
@@ -765,27 +623,91 @@ def _ocr_field(
                 config=config
             ).strip()
 
-            if raw:
+            if not raw:
+                continue
 
-                resultados.append(
-                    raw
-                )
+            clean = _limpiar_campo(
+                field,
+                raw
+            )
+
+            logger.info(
+                "OCR_CONFIG_RESULTADO | "
+                "campo=%s | config=%s | raw=%r | clean=%r",
+                field,
+                config,
+                raw,
+                clean
+            )
+
+            if clean:
+
+                candidatos.append({
+                    "raw": raw,
+                    "clean": clean,
+                    "config": config,
+                    "indice": indice,
+                })
 
         except Exception as e:
 
             logger.warning(
-                "OCR_ERROR | campo=%s | config=%r | error=%s",
+                "OCR_ERROR | "
+                "campo=%s | config=%r | error=%s",
                 field,
                 config,
                 e
             )
 
-    # Evita IndexError si Tesseract no devuelve nada.
-    if resultados:
+    if not candidatos:
 
-        return resultados[0]
+        return None
 
-    return None
+    # ========================================================
+    # PRIORIZAR RESULTADOS REPETIDOS
+    # ========================================================
+
+    agrupados = {}
+
+    for candidato in candidatos:
+
+        clave = normalizar_ocr_texto(
+            candidato["clean"]
+        )
+
+        if clave not in agrupados:
+
+            agrupados[clave] = []
+
+        agrupados[clave].append(
+            candidato
+        )
+
+    # Si dos configuraciones producen el mismo resultado,
+    # consideramos ese resultado más confiable.
+
+    mejor_grupo = max(
+        agrupados.values(),
+        key=lambda grupo: (
+            len(grupo),
+            len(str(grupo[0]["clean"]))
+        )
+    )
+
+    mejor = mejor_grupo[0]
+
+    logger.info(
+        "OCR_CONFIG_ELEGIDA | "
+        "campo=%s | raw=%r | clean=%r | "
+        "config=%r | coincidencias=%s",
+        field,
+        mejor["raw"],
+        mejor["clean"],
+        mejor["config"],
+        len(mejor_grupo)
+    )
+
+    return mejor["clean"]
 
 
 # ============================================================
@@ -1171,6 +1093,19 @@ def encontrar_etiqueta(
     lineas,
     field
 ):
+    """
+    Busca la etiqueta del campo dentro de las líneas OCR.
+
+    Prioridad:
+
+        1. coincidencia exacta
+        2. etiqueta contenida dentro de la línea
+        3. coincidencia aproximada de la línea
+        4. coincidencia aproximada por palabra
+
+    Las etiquetas genéricas no deben tener la misma fuerza
+    que una etiqueta específica.
+    """
 
     etiquetas = LABELS.get(
         field,
@@ -1179,11 +1114,12 @@ def encontrar_etiqueta(
 
     mejor = None
 
-    for linea_index, linea in enumerate(
-        lineas
-    ):
+    for linea_index, linea in enumerate(lineas):
 
         texto = linea["norm"]
+
+        if not texto:
+            continue
 
         for etiqueta in etiquetas:
 
@@ -1191,70 +1127,92 @@ def encontrar_etiqueta(
                 etiqueta
             )
 
-            score = similitud_texto(
-                texto,
-                etiqueta_norm
-            )
+            if not etiqueta_norm:
+                continue
 
-            # ------------------------------------------------
-            # También buscar etiqueta dentro de la línea
-            # ------------------------------------------------
+            score = 0.0
 
-            if (
-                etiqueta_norm
-                and etiqueta_norm in texto
-            ):
+            # ====================================================
+            # 1. COINCIDENCIA EXACTA
+            # ====================================================
 
-                score = max(
-                    score,
-                    0.96
+            if texto == etiqueta_norm:
+
+                score = 1.00
+
+            # ====================================================
+            # 2. ETIQUETA DENTRO DE LA LÍNEA
+            # ====================================================
+
+            elif etiqueta_norm in texto:
+
+                score = 0.96
+
+            # ====================================================
+            # 3. LÍNEA COMPLETA SIMILAR
+            # ====================================================
+
+            else:
+
+                similitud = similitud_texto(
+                    texto,
+                    etiqueta_norm
                 )
 
-            # ------------------------------------------------
-            # Permitir OCR parcial
-            # ------------------------------------------------
+                if similitud >= 0.82:
+
+                    score = similitud
+
+            # ====================================================
+            # 4. PALABRA INDIVIDUAL
+            # ====================================================
 
             palabras_linea = texto.split()
 
             for palabra in palabras_linea:
 
-                parcial = similitud_texto(
+                if len(palabra) < 4:
+                    continue
+
+                similitud = similitud_texto(
                     palabra,
                     etiqueta_norm
                 )
 
-                if len(
-                    normalizar_ocr_texto(
-                        palabra
-                    )
-                ) >= 3:
+                # Mucho más estricto que antes.
+                if similitud >= 0.88:
 
                     score = max(
                         score,
-                        parcial
+                        similitud * 0.90
                     )
 
-            if score >= 0.62:
+            # ====================================================
+            # ACEPTAR CANDIDATO
+            # ====================================================
 
-                candidato = {
+            if score < 0.82:
+                continue
 
-                    "field": field,
+            candidato = {
 
-                    "line_index": linea_index,
+                "field": field,
 
-                    "line": linea,
+                "line_index": linea_index,
 
-                    "score": score,
+                "line": linea,
 
-                    "etiqueta": etiqueta,
-                }
+                "score": score,
 
-                if (
-                    mejor is None
-                    or score > mejor["score"]
-                ):
+                "etiqueta": etiqueta,
+            }
 
-                    mejor = candidato
+            if (
+                mejor is None
+                or score > mejor["score"]
+            ):
+
+                mejor = candidato
 
     if mejor:
 
@@ -1268,8 +1226,15 @@ def encontrar_etiqueta(
             mejor["line"]["text"]
         )
 
-    return mejor
+    else:
 
+        logger.info(
+            "OCR_ETIQUETA_NO_ENCONTRADA | "
+            "campo=%s",
+            field
+        )
+
+    return mejor
 
 # ============================================================
 # TEXTO DE LÍNEA
@@ -2339,6 +2304,10 @@ def comparar_resultados_ocr(
             general_norm == crop_norm
         )
 
+        # ========================================================
+        # COINCIDEN
+        # ========================================================
+
         if coinciden:
 
             logger.info(
@@ -2350,22 +2319,33 @@ def comparar_resultados_ocr(
                 field,
                 general,
                 crop,
-                general
+                crop
             )
 
-        else:
+            return {
+                "value": crop,
+                "origen": "OCR_COP_CONFIRMADO",
+                "general_valido": True,
+                "crop_valido": True,
+                "coinciden": True,
+            }
 
-            logger.warning(
-                "OCR_COMPARACION_CONFLICTO | "
-                "lado=%s | campo=%s | "
-                "general=%r | crop=%r | "
-                "SE_CONSERVA_GENERAL=%r",
-                lado,
-                field,
-                general,
-                crop,
-                general
-            )
+        # ========================================================
+        # DIFIEREN
+        # ========================================================
+
+
+        logger.warning(
+            "OCR_COMPARACION_CONFLICTO | "
+            "lado=%s | campo=%s | "
+            "general=%r | crop=%r | "
+            "SE_CONSERVA_GENERAL=%r",
+            lado,
+            field,
+            general,
+            crop,
+            general
+        )
 
         return {
             "value": general,
@@ -2838,12 +2818,7 @@ def extract_fields(
 
     # Resultados obtenidos por OCR GENERAL.
     # Esta será nuestra fuente principal.
-    general_results = {}
-
-    # Resultados obtenidos mediante OCR por CROP.
-    # Esta será nuestra fuente secundaria/verificadora.
-    crop_results = {}
-
+   
     # --------------------------------------------------------
     # DIRECTORIO DEBUG
     # --------------------------------------------------------
@@ -2879,6 +2854,12 @@ def extract_fields(
             ):
 
                 page_number = idx + 1
+
+                # ====================================================
+                # RESULTADOS AISLADOS POR PÁGINA
+                # ==================================================== 
+                general_results = {}
+                crop_results = {}
 
                 # ====================================================
                 # 1. TEXTO EMBEBIDO
@@ -3401,29 +3382,33 @@ def extract_fields(
                 # ====================================================
 
                 if (
-                    crop_results.get(
-                        "apellidos"
-                    )
+                    results.get("apellidos")
                     and
-                    crop_results.get(
-                        "nombres"
-                    )
+                    results.get("nombres")
                 ):
 
                     nombre_completo = limpiar_texto(
-                        f"{crop_results['apellidos']} "
-                        f"{crop_results['nombres']}"
-                    )
+                        f"{results['nombres']} "
+                        f"{results['apellidos']}"
+                )
 
-                    if validar_campo_ocr(
-                        "nombre_completo",
-                        nombre_completo
-                    ):
+                if validar_campo_ocr(
+                    "nombre_completo",
+                    nombre_completo
+                ):
 
-                        results[
-                            "nombre_completo"
-                        ] = nombre_completo
+                    results["nombre_completo"] = (
+                    nombre_completo
+                )
 
+                logger.info(
+                    "OCR_NOMBRE_COMPLETO_FINAL | "
+                    "nombres=%r | apellidos=%r | "
+                    "nombre_completo=%r",
+                    results["nombres"],
+                    results["apellidos"],
+                    nombre_completo
+                )
     except Exception as e:
 
         logger.exception(

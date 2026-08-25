@@ -1,68 +1,189 @@
 import re
-import logging
+from datetime import datetime
 
-# ============================================
+
+# ============================================================
 # LIMPIEZA DE CAMPOS OCR
-# ============================================
+# ============================================================
 
 def limpiar_numero(raw: str) -> str:
     """
-    Limpia el número de documento: elimina puntos, espacios y caracteres no numéricos.
+    Limpia un número de documento.
+    Conserva únicamente dígitos.
     """
     if not raw:
         return ""
-    numero = re.sub(r'\D', '', raw)
-    return numero.strip() if numero else ""
+
+    numero = re.sub(r"\D", "", str(raw))
+
+    return numero if numero else ""
+
 
 def limpiar_texto(raw: str) -> str:
     """
-    Limpia nombres, apellidos, nacionalidad, lugar de nacimiento:
-    - Elimina caracteres raros
-    - Convierte múltiples espacios en uno
-    - Capitaliza cada palabra
+    Limpia nombres, apellidos, nacionalidad y lugares.
     """
     if not raw:
         return ""
-    texto = re.sub(r'[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]', '', raw)
-    texto = re.sub(r'\s+', ' ', texto).strip()
-    return texto.title()
+
+    texto = str(raw)
+
+    texto = re.sub(
+        r"[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]",
+        "",
+        texto
+    )
+
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
+
+    return texto.title() if texto else ""
+
 
 def limpiar_fecha(raw: str) -> str:
     """
-    Convierte fechas OCR como '22-FEB-1986' o '15 AGO 1993' a formato ISO '1986-02-22'.
+    Normaliza fechas OCR a YYYY-MM-DD.
+
+    Soporta:
+
+        22-FEB-1986
+        22 FEB 1986
+        22/FEB/1986
+        22-02-1986
+        22/02/1986
     """
+
     if not raw:
         return ""
+
+    raw = str(raw).strip().upper()
+
     meses = {
-        "ENE":"01","FEB":"02","MAR":"03","ABR":"04","MAY":"05","JUN":"06",
-        "JUL":"07","AGO":"08","SEP":"09","OCT":"10","NOV":"11","DIC":"12"
+        "ENE": "01",
+        "FEB": "02",
+        "MAR": "03",
+        "ABR": "04",
+        "MAY": "05",
+        "JUN": "06",
+        "JUL": "07",
+        "AGO": "08",
+        "SEP": "09",
+        "OCT": "10",
+        "NOV": "11",
+        "DIC": "12",
     }
-    # Formato con guiones
-    m = re.match(r'(\d{1,2})[-\s]([A-ZÁÉÍÓÚ]{3})[-\s](\d{4})', raw.upper())
-    if m:
-        d, mes, y = m.groups()
-        mes_num = meses.get(mes[:3], "01")
-        return f"{y}-{mes_num}-{d.zfill(2)}"
-    return raw.strip()
+
+    # ========================================================
+    # FECHA CON MES EN TEXTO
+    # ========================================================
+
+    match = re.search(
+        r"(\d{1,2})[-/\s]+([A-ZÁÉÍÓÚ]{3})[-/\s]+(\d{4})",
+        raw
+    )
+
+    if match:
+
+        dia, mes, anio = match.groups()
+
+        mes_numero = meses.get(
+            mes[:3]
+        )
+
+        if mes_numero:
+
+            try:
+
+                fecha = datetime.strptime(
+                    f"{anio}-{mes_numero}-{dia.zfill(2)}",
+                    "%Y-%m-%d"
+                )
+
+                return fecha.strftime(
+                    "%Y-%m-%d"
+                )
+
+            except ValueError:
+
+                return ""
+
+    # ========================================================
+    # FECHA NUMÉRICA
+    # ========================================================
+
+    match = re.search(
+        r"(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})",
+        raw
+    )
+
+    if match:
+
+        dia, mes, anio = match.groups()
+
+        try:
+
+            fecha = datetime.strptime(
+                f"{anio}-{mes.zfill(2)}-{dia.zfill(2)}",
+                "%Y-%m-%d"
+            )
+
+            return fecha.strftime(
+                "%Y-%m-%d"
+            )
+
+        except ValueError:
+
+            return ""
+
+    return ""
+
 
 def limpiar_sexo(raw: str) -> str:
     """
-    Normaliza sexo: M/F → Masculino/Femenino
+    Normaliza M/F.
     """
+
     if not raw:
         return ""
-    rv = raw.strip().upper()
-    if rv.startswith("M"):
+
+    valor = str(raw).strip().upper()
+
+    if valor.startswith("M"):
         return "Masculino"
-    elif rv.startswith("F"):
+
+    if valor.startswith("F"):
         return "Femenino"
+
     return ""
+
 
 def limpiar_rh(raw: str) -> str:
     """
-    Normaliza tipo de sangre: O+, A-, etc.
+    Normaliza grupos sanguíneos.
     """
+
     if not raw:
         return ""
-    m = re.match(r'([ABO]{1,2}[+-])', raw.upper())
-    return m.group(1) if m else ""
+
+    valor = str(raw).upper()
+
+    valor = valor.replace(" ", "")
+    valor = valor.replace("0", "O")
+
+    # Normalizar símbolos OCR frecuentes
+    valor = (
+        valor
+        .replace("−", "-")
+        .replace("–", "-")
+        .replace("—", "-")
+    )
+
+    match = re.search(
+        r"(AB|A|B|O)[+-]",
+        valor
+    )
+
+    return match.group(0) if match else ""
