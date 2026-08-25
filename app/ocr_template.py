@@ -3202,8 +3202,9 @@ def extract_fields(
                         # ====================================================
 
                         if field in (
-                            "Apellidos",
-                            "Nombres"
+                            "apellidos",
+                            "nombres",
+                            "lugar_nacimiento",
                         ):
                             crop_ocr = crop
 
@@ -3221,7 +3222,6 @@ def extract_fields(
                             field,
                             crop.width,
                             crop.height,
-                            field not in ("Apellidos", "Nombres")
                         )
 
                         # ------------------------------------------------
