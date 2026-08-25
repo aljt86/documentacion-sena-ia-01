@@ -1979,9 +1979,7 @@ def procesar_por_coordenadas(
 
         try:
 
-            crop = img.crop(
-                box
-            )
+            crop = img.crop(box)
 
             guardar_crop_debug(
                 crop,
@@ -3203,9 +3201,17 @@ def extract_fields(
                         # PREPROCESAR
                         # ====================================================
 
-                        crop = preprocesa_image(
-                            crop
-                        )
+                        if field in (
+                            "Apellidos",
+                            "Nombres"
+                        ):
+                            crop_ocr = crop
+
+                        else:
+                            
+                            crop_ocr = preprocesa_image(
+                                crop
+                            )
 
                         logger.info(
                             "OCR_CROP_PREPROCESADO | "
@@ -3214,7 +3220,8 @@ def extract_fields(
                             page_number,
                             field,
                             crop.width,
-                            crop.height
+                            crop.height,
+                            field not in ("Apellidos", "Nombres")
                         )
 
                         # ------------------------------------------------
@@ -3222,7 +3229,7 @@ def extract_fields(
                         # ------------------------------------------------
 
                         guardar_crop_debug(
-                            crop,
+                            crop_ocr,
                             f"{field}_ocr",
                             page_number,
                             debug_dir
@@ -3233,7 +3240,7 @@ def extract_fields(
                         # ====================================================
 
                         raw = _ocr_field(
-                            crop,
+                            crop_ocr,
                             field
                         )
 
