@@ -90,10 +90,10 @@ zones_hologramas_anverso = {
 
 
 zones_hologramas_reverso = {
-    "fecha_nacimiento": (0.45, 0.07, 0.72, 0.14),
-    "lugar_nacimiento": (0.10, 0.07, 0.42, 0.16),
-    "tipo_sangre":      (0.48, 0.16, 0.62, 0.23),
-    "sexo":             (0.68, 0.16, 0.78, 0.23),
+    "fecha_nacimiento": (0.70, 0.07, 0.94, 0.16),
+    "lugar_nacimiento": (0.10, 0.07, 0.43, 0.16),
+    "tipo_sangre":      (0.47, 0.16, 0.62, 0.23),
+    "sexo":             (0.68, 0.16, 0.80, 0.23),
 }
 
 
