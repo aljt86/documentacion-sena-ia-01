@@ -472,10 +472,11 @@ def validar_campo_ocr(
             patron in valor
             for patron in patrones_invalidos
         ):
+            
             logger.warning(
                 "OCR_NACIONALIDAD_RECHAZADA | "
                 "motivo=REGISTRADOR_O_INSTITUCION | "
-                "valor=r%"
+                "valor=%r"
                 value
             )
             return False
