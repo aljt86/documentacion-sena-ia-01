@@ -476,7 +476,7 @@ def validar_campo_ocr(
             logger.warning(
                 "OCR_NACIONALIDAD_RECHAZADA | "
                 "motivo=REGISTRADOR_O_INSTITUCION | "
-                "valor=%r"
+                "valor=%r",
                 value
             )
             return False
