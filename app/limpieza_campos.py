@@ -61,6 +61,19 @@ def limpiar_fecha(raw: str) -> str:
 
     raw = str(raw).strip().upper()
 
+    # ========================================================
+    # FECHA YA NORMALIZADA: YYYY-MM-DD
+    # ========================================================
+
+    match = re.fullmatch(r"(\d{4})-({\d{2}})-(\d{2})")
+
+    if match:
+        try:
+            fecha = datetime.strptime(raw, "%Y-%m-%d")
+            return fecha.strftime("%Y-%m-%d")
+        except ValueError:
+            return ""   
+
     meses = {
         "ENE": "01",
         "FEB": "02",

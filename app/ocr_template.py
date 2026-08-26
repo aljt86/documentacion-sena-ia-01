@@ -3387,26 +3387,24 @@ def extract_fields(
                 # ====================================================
                 # 6. RECONSTRUIR NOMBRE COMPLETO
                 # ====================================================
+                
+                nombre_completo = ""
 
-                if (
-                    results.get("apellidos")
-                    and
-                    results.get("nombres")
-                ):
+                nombres = (results.get("nombres") or "").strip()
+                apellidos = (results.get("apellidos") or "").strip()
 
-                    nombre_completo = limpiar_texto(
-                        f"{results['nombres']} "
-                        f"{results['apellidos']}"
-                )
+                if nombres or apellidos:
 
-                if validar_campo_ocr(
-                    "nombre_completo",
-                    nombre_completo
-                ):
+                    nombre_completo = limpiar_texto(f"{nombres} {apellidos}".strip())                          
 
-                    results["nombre_completo"] = (
-                    nombre_completo
-                )
+                    if validar_campo_ocr(
+                        "nombre_completo",
+                        nombre_completo
+                    ):
+
+                        results["nombre_completo"] = (
+                            nombre_completo
+                        )
 
                 logger.info(
                     "OCR_NOMBRE_COMPLETO_FINAL | "
