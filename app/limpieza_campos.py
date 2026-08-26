@@ -55,6 +55,7 @@ def limpiar_fecha(raw: str) -> str:
         22/FEB/1986
         22-02-1986
         22/02/1986
+        YYYY-MM-DD
     """
 
     if not raw:
@@ -82,12 +83,20 @@ def limpiar_fecha(raw: str) -> str:
     # FECHA YA NORMALIZADA: YYYY-MM-DD
     # ========================================================
 
-    match = re.fullmatch(r"(\d{4})-({\d{2}})-(\d{2})")
+    match = re.fullmatch(
+        r"(\d{4})-({\d{2}})-(\d{2})", 
+        raw
+    )
 
     if match:
         try:
-            fecha = datetime.strptime(raw, "%Y-%m-%d")
+            fecha = datetime.strptime(
+                raw,
+                "%Y-%m-%d"
+            )
+
             return fecha.strftime("%Y-%m-%d")
+        
         except ValueError:
             return ""  
 
@@ -102,6 +111,7 @@ def limpiar_fecha(raw: str) -> str:
 
     if match:
         dia, mes, anio = match.groups()
+
         mes_numero = meses.get(mes[:3])
 
         if mes_numero:
@@ -110,7 +120,9 @@ def limpiar_fecha(raw: str) -> str:
                     f"{anio}-{mes_numero}-{dia.zfill(2)}",
                     "%Y-%m-%d"
                 )
+
                 return fecha.strftime("%Y-%m-%d")
+            
             except ValueError:
                 return ""
 

@@ -382,26 +382,204 @@ def validar_campo_ocr(
     # LUGAR / NACIONALIDAD
     # --------------------------------------------------------
 
-    if field in (
-        "lugar_nacimiento",
-        "nacionalidad",
-    ):
+    if field == "lugar_nacimiento":
+
+        valor = normalizar(value)
+
+        # ------------------------------------------------------
+        # DESCARTAR VALORES DEMASIADO CORTOS
+        # ------------------------------------------------------
 
         if len(value) < 3:
             return False
 
-        if len(
-            value.replace(
-                " ",
-                ""
-            )
-        ) < 3:
+        # ------------------------------------------------------
+        # PALABRAS QUE PERTENECEN A OTROS CAMPOS
+        # ------------------------------------------------------
+        
+        palabras_invalidas = (
+            "FECHA",
+            "NACIMIENTO",
+            "LUGAR",
+            "ESTATURA",
+            "SEXO",
+            "RH",
+            "REGISTRADOR",
+            "INDICE",
+            "DERECHO",
+            "NACIONAL",
+            "EXPEDICION",
+            "IDENTIFICACION",
+            "APELLIDOS",
+            "NOMBRES",
+            "FIRMA"
+        )
 
+        # ------------------------------------------------------
+        # RECHAZAR SI EL VALOR CONTIENE INFORMACIÓN DE OTRO CAMPO
+        # ------------------------------------------------------
+
+        if any(
+            palabra in valor
+            for palabra in palabras_invalidas
+        ):
+            logger.warning(
+                "OCR_VALOR_RECHAZADO | "
+                "campo=lugar_nacimiento | "
+                "motivo=CONTAMINACION_OTRO_CAMPO | "
+                "valor=%r",
+                value
+            )
             return False
 
+        # ------------------------------------------------------
+        # DEBE CONTENER LETRAS
+        # ------------------------------------------------------
+        
+        if not re.search(r"[A-ZÁÉÍÓÚ´Ñ]", valor):
+            return False
+        
         return True
 
-    return True
+    # ==========================================================
+    # NACIONALIDAD
+    # ==========================================================
+
+    if field == "nacionaldad":
+        valor = normalizar(value)
+
+        # ------------------------------------------------------
+        # DESCARTAR VALORES DEMASIADO CORTOS
+        # ------------------------------------------------------
+        
+        if len(valor) < 4:
+            return False
+
+        # ------------------------------------------------------
+        # NUNCA ACEPTAR TEXTO DEL REGISTRADOR
+        # ------------------------------------------------------
+        
+        patrones_invalidos = (
+            "REGISTRADOR",
+            "REGISTRADOR NACIONAL",
+            "INDICE DERECHO",
+            "INDICE",
+            "DERECHO",
+            "REGISTRADOR NACIONAL DEL ESTADO CIVIL"
+        )
+
+        if any(
+            patron in valor
+            for patron in patrones_invalidos
+        ):
+            logger.warning(
+                "OCR_NACIONALIDAD_RECHAZADA | "
+                "motivo=REGISTRADOR_O_INSTITUCION | "
+                "valor=r%"
+                value
+            )
+            return False
+
+        # ------------------------------------------------------
+        # DESCARTAR PALABRAS QUE PERTENECEN A OTROS CAMPOS
+        # ------------------------------------------------------
+
+        palabras_invalidas = (
+            "FECHA",
+            "NACIMIENTO",
+            "LUGAR",
+            "ESTATURA",
+            "SEXO",
+            "EXPEDICION",
+            "IDENTIFICACION",
+            "APELLIDOS",
+            "NOMBRES",
+            "FIRMA"
+        )
+
+        if any(
+            palabra in valor
+            for palabra in palabras_invalidas
+        ):
+            logger.warning(
+                "OCR_NACIONALIDAD_RECHAZADA | "
+                "motivo=CONTAMINACION_OTRO_CAMPO | "
+                "valor=%r",
+                value
+            )
+            return False
+
+        # ------------------------------------------------------
+        # NACIONALIDADES VÁLIDAS
+        # ------------------------------------------------------   
+
+        nacionalidades_validas = (
+            "COLOMBIANO",
+            "COLOMBIANA",
+            "VENEZOLANO",
+            "VENEZOLANA",
+            "ECUATORIANO",
+            "ECUATORIANA",
+            "PERUANO",
+            "PERUANA",
+            "BOLIVIANO",
+            "BOLIVIANA",
+            "CHILENO",
+            "CHILENA",
+            "ARGENTINO",
+            "ARGENTINA",
+            "BRASILEÑO",
+            "BRASILEÑA",
+            "PARAGUAYO",
+            "PARAGUAYA",
+            "URUGUAYO",
+            "URUGUAYA",
+            "MEXICANO",
+            "MEXICANA",
+            "PANAMEÑO",
+            "PANAMEÑA",
+            "COSTARRICENSE",
+            "NICARAGUENSE",
+            "HONDUREÑO",
+            "HONDUREÑA",
+            "SALVADOREÑO",
+            "SALVADOREÑA",
+            "GUATEMALTECO",
+            "GUATEMALTECA",
+            "ESTADOUNIDENSE",
+            "CANADIENSE",
+            "ESPAÑOL",
+            "ESPAÑOLA",
+            "FRANCES",
+            "FRANCESA",
+            "ITALIANO",
+            "ITALIANA",
+            "ALEMAN",
+            "ALEMANA",
+            "INGLES",
+            "INGLESA",
+            "PORTUGUES",
+            "PORTUGUESA",
+        )
+
+        # ------------------------------------------------------
+        # LA NACIONALIDAD DEBE CORRESPONDER A UNA NACIONALIDAD
+        # CONOCIDA
+        # ------------------------------------------------------
+
+        if not any(
+            nacionalidad in valor
+            for nacionalidad in nacionalidades_validas
+        ):
+            logger.warning(
+                "OCR_NACIONALIDAD_RECHAZADA | "
+                "motivo=NACIONALIDAD_NO_RECONOCIDA | "
+                "valor=%r",
+                value
+            )
+            return False
+
+        return True      
 
 # ============================================================
 # DEBUG DE CROPS
@@ -2381,7 +2559,7 @@ def comparar_resultados_ocr(
     # SOLO CROP VÁLIDO
     # ========================================================
 
-    if crop_valido:
+    if crop_valido and not general_valido:
 
         logger.warning(
             "OCR_CROP_RECUPERACION | "
