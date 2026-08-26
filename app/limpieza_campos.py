@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 
 
@@ -26,7 +27,7 @@ def limpiar_texto(raw: str) -> str:
     if not raw:
         return ""
 
-    texto = str(raw)
+    texto = unicodedata.normalize("NFKC", str(raw))
 
     texto = re.sub(
         r"[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]",
@@ -60,20 +61,8 @@ def limpiar_fecha(raw: str) -> str:
         return ""
 
     raw = str(raw).strip().upper()
-
-    # ========================================================
-    # FECHA YA NORMALIZADA: YYYY-MM-DD
-    # ========================================================
-
-    match = re.fullmatch(r"(\d{4})-({\d{2}})-(\d{2})")
-
-    if match:
-        try:
-            fecha = datetime.strptime(raw, "%Y-%m-%d")
-            return fecha.strftime("%Y-%m-%d")
-        except ValueError:
-            return ""   
-
+    raw = re.sub(r"\s+", " ", raw) 
+    
     meses = {
         "ENE": "01",
         "FEB": "02",
@@ -90,6 +79,19 @@ def limpiar_fecha(raw: str) -> str:
     }
 
     # ========================================================
+    # FECHA YA NORMALIZADA: YYYY-MM-DD
+    # ========================================================
+
+    match = re.fullmatch(r"(\d{4})-({\d{2}})-(\d{2})")
+
+    if match:
+        try:
+            fecha = datetime.strptime(raw, "%Y-%m-%d")
+            return fecha.strftime("%Y-%m-%d")
+        except ValueError:
+            return ""  
+
+    # ========================================================
     # FECHA CON MES EN TEXTO
     # ========================================================
 
@@ -99,28 +101,17 @@ def limpiar_fecha(raw: str) -> str:
     )
 
     if match:
-
         dia, mes, anio = match.groups()
-
-        mes_numero = meses.get(
-            mes[:3]
-        )
+        mes_numero = meses.get(mes[:3])
 
         if mes_numero:
-
             try:
-
                 fecha = datetime.strptime(
                     f"{anio}-{mes_numero}-{dia.zfill(2)}",
                     "%Y-%m-%d"
                 )
-
-                return fecha.strftime(
-                    "%Y-%m-%d"
-                )
-
+                return fecha.strftime("%Y-%m-%d")
             except ValueError:
-
                 return ""
 
     # ========================================================
@@ -128,12 +119,11 @@ def limpiar_fecha(raw: str) -> str:
     # ========================================================
 
     match = re.search(
-        r"(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})",
+        r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b",
         raw
     )
 
     if match:
-
         dia, mes, anio = match.groups()
 
         try:
@@ -143,12 +133,8 @@ def limpiar_fecha(raw: str) -> str:
                 "%Y-%m-%d"
             )
 
-            return fecha.strftime(
-                "%Y-%m-%d"
-            )
-
+            return fecha.strftime("%Y-%m-%d")
         except ValueError:
-
             return ""
 
     return ""
@@ -172,7 +158,6 @@ def limpiar_sexo(raw: str) -> str:
 
     return ""
 
-
 def limpiar_rh(raw: str) -> str:
     """
     Normaliza grupos sanguíneos.
@@ -189,9 +174,9 @@ def limpiar_rh(raw: str) -> str:
     # Normalizar símbolos OCR frecuentes
     valor = (
         valor
-        .replace("−", "-")
-        .replace("–", "-")
-        .replace("—", "-")
+        .replace("-", "-")
+        .replace("-", "-")
+        .replace("-", "-")
     )
 
     match = re.search(
