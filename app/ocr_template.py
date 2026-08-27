@@ -255,7 +255,42 @@ def similitud_texto(a, b):
     ).ratio()
 
 # ============================================================
-# VALIDACIÓN DE RESULTADOS OCR
+# VALIDACIÓN DE CAMPOS OCR
+# ============================================================
+
+def normalizar(texto):
+    if not texto:
+        return ""
+ 
+    reemplazos = {
+        "Á": "A",
+        "É": "E",
+        "Í": "I",
+        "Ó": "O",
+        "Ú": "O",
+        "Ú": "U",
+        "Ü": "U",
+        "Ñ": "N"
+    }
+
+    texto = texto.upper()
+
+    for origen, reemplazo in reemplazos.items():
+        texto = texto.replace(
+            origen,
+            reemplazo
+        )
+
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
+
+    return texto 
+
+# ============================================================
+# VALIDACIÓN DE CAMPOS OCR
 # ============================================================
 
 def validar_campo_ocr(
@@ -445,7 +480,7 @@ def validar_campo_ocr(
     # NACIONALIDAD
     # ==========================================================
 
-    if field == "nacionaldad":
+    if field == "nacionalidad":
         valor = normalizar(value)
 
         # ------------------------------------------------------
