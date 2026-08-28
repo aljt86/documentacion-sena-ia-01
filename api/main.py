@@ -745,12 +745,12 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     try:
         usuario = db.query(Usuario).filter(Usuario.Email == user.email).first()
         if not usuario:
-            logger.warning(f"вљ пёЏ Usuario no encontrado: {user.email}")
-            raise HTTPException(status_code=401, detail="Credenciales invГЎlidas")
+            logger.warning("Usuario no encontrado: %s, user.email")
+            raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
         if not verify_password(user.password, usuario.Password):
-           logger.warning(f"вљ пёЏ ContraseГ±a incorrecta para: {user.email}")
-           raise HTTPException(status_code=401, detail="Credenciales invГЎlidas")
+           logger.warning("ContraseГ±a incorrecta para: %s", user.email)
+           raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
         usuario.ConteoIngresos = (usuario.ConteoIngresos or 0) + 1
         db.commit()
@@ -766,8 +766,10 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"вќЊ Error en login: {str(e)}")
-    raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+        db.rolback()
+        logger.exception("ERROR_LOGIN | %s" e)
+    raise HTTPException(status_code=500, detail=f"Error interno del servidor")
 
 # ============================================
 # ENDPOINT: SUBIR DOCUMENTO (OCR)
@@ -782,18 +784,25 @@ async def ocr_upload(
     db: Session = Depends(get_db),
    ):
     try:
+
+        # ==================================================
         # Validar usuario
-        usuario = db.query(Usuario).filter(Usuario.Id == usuario_id).first()
+        # ==================================================
+
+        usuario = (db.query(Usuario).filter(Usuario.Id == usuario_id).first())
         if not usuario:
             raise HTTPException(status_code=400, detail="Usuario no existe")
 
-       # Guardar archivo en disco
+        # ==================================================
+        # Guardar archivo en disco
+        # ==================================================
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
         programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
         os.makedirs(programa_dir, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{usuario_id}_{timestamp}_{file.filename}"
+        filename = (f"{usuario_id}_{timestamp}_{file.filename}")
         file_path = os.path.join(programa_dir, filename)
 
         with open(file_path, "wb") as f:
@@ -801,20 +810,33 @@ async def ocr_upload(
 
         logger.info(f"рџ“‚ Archivo guardado en: {file_path}")
 
-       # Lanzar OCR en segundo plano (sin pasar db)
+        # ==================================================
+        # PROGRAMAR OCR 
+        # ==================================================
+
         background_tasks.add_task(
            procesar_ocr_en_segundo_plano,
            file_path,
            programa,
            usuario_id
         )
-        logger.info("OCR_BACKGROUND_SCHEDULED | archivo=%s", file_path)
+        logger.info(
+            "OCR_BACKGROUND_SCHEDULED | archivo=%s", 
+            file_path
+        )
 
         return {
-           "mensaje": "Documento recibido y guardado correctamente. El procesamiento continuarГЎ en segundo plano.",
-           "archivo": file_path,
-           "status": "processing"
+           "mensaje": (
+               "Documento recibido y guardado correctamente. "
+               "El procesamiento continuarГЎ en segundo plano."
+            ),
+            "archivo": file_path,
+            "status": "processing"
         }
+    except HTTPException:
+        raise
+
     except Exception as e:
-        logger.error(f"вќЊ Error al subir documento: {e}")
-    raise HTTPException(status_code=500, detail=f"Error al subir documento: {str(e)}")
+
+        logger.exception("ERRO_UPLOAD | %s", e)
+        raise HTTPException(status_code=500, detail="Error al subir documento")
