@@ -1715,6 +1715,7 @@ def extraer_por_etiqueta(
 
                 logger.info(
                     "OCR_NUMERO_DESDE_LINEA_INFERIOR | "
+                    "texto=%r | numero=%s",
                     texto,
                     numero
                 )
