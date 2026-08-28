@@ -770,7 +770,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     except Exception as e:
 
         db.rolback()
-        logger.exception("ERROR_LOGIN | %s" e)
+        logger.exception("ERROR_LOGIN | %s", e)
     raise HTTPException(status_code=500, detail=f"Error interno del servidor")
 
 # ============================================
