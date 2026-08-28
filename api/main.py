@@ -449,17 +449,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
 
         db.flush()
 
-        logger.info(
-            "POSTGRESQL_FLUSH_OK | "
-            "EstudianteId=%s | "
-            "ProgramaId=%s | "
-            "UsuarioId=%s | ",
-            "DocumentoId=%s",
-            estudiante.Id,
-            programa_db.id,
-            usuario_id,
-            nuevo_documento.Id
-        )
+        logger.info("POSTGRESQL_FLUSH_OK | EstudianteId=%s | ProgramaId=%s | UsuarioId=%s | DocumentoId=%s", estudiante.Id, programa_db.id, usuario_id, nuevo_documento.Id)
 
         # --------------------------------------------------
         # COMMIT
