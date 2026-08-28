@@ -7,18 +7,39 @@ from datetime import datetime
 # LIMPIEZA DE CAMPOS OCR
 # ============================================================
 
-def limpiar_numero(raw: str) -> str:
+def limpiar_numero(raw):
     """
     Limpia un número de documento.
     Conserva únicamente dígitos.
-    """
-    if not raw:
+
+    Ejemplos:
+       '1.061.686.689' -> '1061686689'
+        '1,061.686.689' -> '1061686689'
+        ' 1.061.686.689 ' -> '1061686689'
+
+    No determina por sí sola si el número es correcto.
+    Solamente normaliza el valor recibido.
+    """ 
+    
+    if raw is None:
         return ""
 
-    numero = re.sub(r"\D", "", str(raw))
+    texto = str(raw).strip()
 
-    return numero if numero else ""
+    if not texto:
+        return ""
 
+    # Eliminar separadores habituales de miles
+    texto = re.sub(r"[.\s,-]", "", texto)
+
+    # Mantener únicamente números 
+    texto = re.sub(r"\D", "", texto)
+
+    # Longitud razonable para docuemnto de identidad
+    if not 6 <= len(texto) <= 12:
+        return ""
+
+    return texto 
 
 def limpiar_texto(raw: str) -> str:
     """

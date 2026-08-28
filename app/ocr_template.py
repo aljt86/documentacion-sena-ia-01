@@ -323,12 +323,24 @@ def validar_campo_ocr(
 
     if field == "numero_documento":
 
-        return bool(
-            re.fullmatch(
-                r"\d{6,12}",
-                value
-            )
-        )
+        # Debe contener únicamente díigitos
+        if not value.isdigit():
+            return false
+
+        # La cedula colombiana que estamos procesando debe estar entre 6 y 10 dígitos
+        if not (6 <= len(value) <= 10):
+            return False
+
+        # No aceptar números formados por un único dígito repetido, ejemplos: 0000000000, 1111111111, 9999999999
+        if len (set(value)) == 1:
+            return False
+        
+        # No aceptar años como número de documento.
+        if len(value) == 4:
+            return False
+
+        return True
+
 
     # --------------------------------------------------------
     # FECHA
@@ -615,7 +627,111 @@ def validar_campo_ocr(
             )
             return False
 
-        return True      
+        return True    
+
+def extraer_numero_documento_desde_texto(texto):
+
+    """
+    Extrae el número de documento desde el texto OCR.
+
+    Prioriza números escritos con separadores de miles:
+        1.061.686.689
+        1,061,686,689
+        1.061.686.689
+
+    También acepta números continuos:
+        1061686689
+    
+    Nunca devuelve números qie no cumplan con la validación de número de documento
+    """
+
+    if not texto:
+        return None
+
+    texto = str(texto).strip()
+
+    if not texto:
+        return None
+
+    # ==================================================
+    # 1. BUSCAR NÚMEROS CON SEPARADORES
+    # ==================================================
+
+    candidatos_separados = re.findall(r"\b\d{1,3}(?:[.,]\d{3}){2,3}\b", texto)
+
+    candidatos_validos = []
+
+    for candidato in candidatos_separados:
+
+        limpio = limpiar_numero(candidato)
+
+        if validar_campo_ocr(
+            "numero_docuemnto",
+            limpio
+        ):
+
+            candidatos_validos.append(limpio)
+
+    if candidatos_validos:
+            
+        elegido = max(
+            candidatos_validos,
+            key=len
+        )
+
+        logger.info(
+            "OCCR_NUMERO_SEPARADO_VALIDO | "
+            "texto=%r | "
+            "candidatos=%s | "
+            "elegido=%s",
+            texto,
+            candidatos_validos,
+            elegido
+        )
+
+        return elegido
+
+    # ==================================================
+    # 2. BUSCAR NÚMEROS SIN SEPARADORES
+    # ==================================================
+
+    candidatos_continuos = re.findall(
+        r"\b\d{6,12}\b",
+        texto
+    )
+
+    candidatos_validos = []
+
+    for candidato in candidatos_continuos:
+
+        limpio = limpiar_numero(candidato)
+
+        if validar_campo_ocr(
+            "numero_documento",
+            limpio
+        ):
+            candidatos_validos.append(limpio)
+
+    if candidatos_validos:
+
+        return max(
+            candidatos_validos,
+            key=len
+        )
+
+        logger.info(
+            "OCR_NUMERO_CONTINUO_VALIDO | "
+            "texto=%r | "
+            "candidato=%s | "
+            "elegido=%s",
+            texto,
+            candidatos_validos,
+            elegido
+        )
+
+        return elegido
+
+    return None
 
 # ============================================================
 # DEBUG DE CROPS
@@ -695,7 +811,6 @@ def guardar_crop_debug(
 
         return None
 
-
 # ============================================================
 # PREPROCESAMIENTO
 # ============================================================
@@ -746,7 +861,6 @@ def preprocesa_image(
         )
 
         return pil_img
-
 
 # ============================================================
 # OCR POR CAMPO
@@ -1527,7 +1641,6 @@ def obtener_linea_inferior(
 
     return resultado
 
-
 # ============================================================
 # EXTRAER TEXTO ALREDEDOR DE ETIQUETA
 # ============================================================
@@ -1566,39 +1679,50 @@ def extraer_por_etiqueta(
     )
 
     # ========================================================
-    # NUMERO
+    # NUMERO DOCUMENTO
     # ========================================================
 
     if field == "numero_documento":
 
-        numeros = re.findall(
-            r"\d{6,12}",
-            texto_linea
-        )
+        # ----------------------------------------------------
+        # 1. BUSCAR EN LA LÍNEA DE LA ETIQUETA
+        # ----------------------------------------------------
 
-        if numeros:
-            return numeros[0]
+        numero = extraer_numero_documento_desde_texto(texto_linea)
 
-        for siguiente in obtener_linea_inferior(
-            lineas,
-            indice,
-            2
-        ):
+        if numero:
 
-            texto = texto_de_linea(
-                siguiente
+            logger.info(
+                "OCR_NUMERO_DESDE_ETIQUETA | "
+                "texto=%r | numero=%s",
+                texto_linea,
+                numero
             )
 
-            numeros = re.findall(
-                r"\d{6,12}",
-                texto
-            )
+            return numero
 
-            if numeros:
-                return numeros[0]
+        # ----------------------------------------------------
+        # 2. BUSCAR EN LAS LÍNEAS INFERIORES
+        # ----------------------------------------------------    
+
+        for siguiente in obtener_linea_inferior(lineas, indice, 2):
+
+            texto = texto_de_linea(siguiente)
+
+            numero = extraer_numero_documento_desde_texto(texto)
+
+            if numero:
+
+                logger.info(
+                    "OCR_NUMERO_DESDE_LINEA_INFERIOR | "
+                    texto,
+                    numero
+                )
+
+            return numero
 
         return None
-
+      
     # ========================================================
     # FECHA
     # ========================================================
@@ -2559,12 +2683,41 @@ def comparar_resultados_ocr(
             general
         )
 
+        # ========================================================
+        # REGLA ESPECIAL PARA NÚMERO DE DOCUMENTO
+        # ========================================================
+
+        if field == "numero_documento":
+
+            logger.warning(
+                "OCR_NUMERO_DOCUMENTO_CONFLICTO | "
+                "lado=%s | "
+                "GENERAL=%r | "
+                "CROP=%r | "
+                "SE_PRIORIZA_CROP",
+                lado,
+                general,
+                crop
+            )
+
+            return {
+                "value": crop,
+                "origen": "OCR_CROP_PRIORIZADO",
+                "general_valido": True,
+                "crop_valido": True,
+                "coinciden": False,
+            }
+
+        # ========================================================
+        # RESTO DE CAMPOS
+        # ========================================================
+
         return {
             "value": general,
             "origen": "OCR_GENERAL",
             "general_valido": True,
             "crop_valido": True,
-            "coinciden": coinciden,
+            "coinciden": False,
         }
 
     # ========================================================
