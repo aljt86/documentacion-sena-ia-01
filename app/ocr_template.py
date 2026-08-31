@@ -325,7 +325,7 @@ def validar_campo_ocr(
 
         # Debe contener únicamente díigitos
         if not value.isdigit():
-            return false
+            return False 
 
         # La cedula colombiana que estamos procesando debe estar entre 6 y 10 dígitos
         if not (6 <= len(value) <= 10):
@@ -666,7 +666,7 @@ def extraer_numero_documento_desde_texto(texto):
         limpio = limpiar_numero(candidato)
 
         if validar_campo_ocr(
-            "numero_docuemnto",
+            "numero_documento",
             limpio
         ):
 
@@ -690,6 +690,8 @@ def extraer_numero_documento_desde_texto(texto):
         )
 
         return elegido
+    
+    return None
 
     # ==================================================
     # 2. BUSCAR NÚMEROS SIN SEPARADORES

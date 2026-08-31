@@ -226,6 +226,25 @@ def descargar_crop(programa: str, filename: str):
         }
     )
 
+import re
+
+def normalizar_programa(programa: str) -> str:
+    programa = programa.strip()
+
+    # Espacios -> _
+    programa = re.sub(r"\s+", "_", programa)
+
+    # Solo letras, números, _, - y.
+    programa = re.sub(r"[^a-zA-Z0-9_.-]", "", programa)
+
+    # Evitar nombres problemáticos
+    programa = programa.strip(".")
+
+    if not programa:
+        raise ValueError("Nombre de programa invalido")
+    
+    return programa
+
 # ============================================
 # BACKGROUND OCR (crea su propia sesiГіn DB)
 # ============================================
@@ -291,9 +310,35 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         # VALIDAR NUMERO DE DOCUMENTO
         # ==================================================
                 
-        if not numero_doc:
-           logger.warning("OCR sin número de documento." "Se continuará guardando el resto de los datos")
-           numero_doc = None 
+        if numero_doc:
+
+            numero_doc = "".join(
+                caracter 
+                for caracter in numero_doc
+                if caracter.isdigit()
+            )
+
+            if not (
+                6 <= len(numero_doc) <= 10
+            ):
+
+                logger.warning(
+                    "OCR_NUMERO_DOCUMENTO_INVALIDO | "
+                    "valor=%s | longitud=%s",
+                    numero_doc,
+                    len(numero_doc)
+                )
+
+                numero_doc = None
+
+        else:
+
+            logger.warning(
+                "OCR_NUMERO_DOCUMENTO_NO_CAPTURADO | "
+                "Se continuará procesando los demás campos"
+            )
+
+            numero_doc = None 
           
         # ==================================================
         # VALIDAR USUARIO
@@ -370,6 +415,22 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
             # suba nuevamente su documento.
 
         else:
+
+            # ==================================================
+            # NO CREAR ESTUDIANTE SIN NUMERO DE DOCUMENTO
+            # ==================================================
+
+            if not numero_doc:
+
+                logger.error(
+                    "ESTUDIANTE_NO_CREADO | "
+                    "OCR no obtuvo un numero de documento valido | "
+                    "Nombre=%r | Programa=%r",
+                    nombre_completo,
+                    programa 
+                )
+
+                return
 
             estudiante = Estudiante(
                 NumeroDocumento=numero_doc,
@@ -757,11 +818,12 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         }
     except HTTPException:
         raise
+    
     except Exception as e:
 
-        db.rolback()
+        db.roLlback()
         logger.exception("ERROR_LOGIN | %s", e)
-    raise HTTPException(status_code=500, detail=f"Error interno del servidor")
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor")
 
 # ============================================
 # ENDPOINT: SUBIR DOCUMENTO (OCR)
@@ -776,7 +838,16 @@ async def ocr_upload(
     db: Session = Depends(get_db),
    ):
     try:
+        # ==================================================
+        # Validar usuario
+        # ==================================================
 
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No se recibio un nombre de archivo")
+
+        if not file.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF")
+        
         # ==================================================
         # Validar usuario
         # ==================================================
@@ -786,21 +857,31 @@ async def ocr_upload(
             raise HTTPException(status_code=400, detail="Usuario no existe")
 
         # ==================================================
-        # Guardar archivo en disco
+        # Normalizar programa
+        # ==================================================
+
+        programa_nombre = normalizar_programa(programa)
+
+        # ==================================================
+        # Guardar en disco
         # ==================================================
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        programa_dir = os.path.join(base_dir, "documentos", programa.replace(" ", "_"))
+        programa_dir = os.path.join(base_dir, "documentos", programa_nombre)
         os.makedirs(programa_dir, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = (f"{usuario_id}_{timestamp}_{file.filename}")
+        nombre_original = os.path.basename(file.filename)
+        filename = f"{usuario_id}_{timestamp}_{nombre_original}"
         file_path = os.path.join(programa_dir, filename)
 
         with open(file_path, "wb") as f:
-           f.write(await file.read())
+            f.write(await file.read())
 
-        logger.info(f"рџ“‚ Archivo guardado en: {file_path}")
+        logger.info(
+            "ARCHIVO_GUARDADO | ruta=%s",
+            file_path
+        )
 
         # ==================================================
         # PROGRAMAR OCR 
@@ -809,7 +890,7 @@ async def ocr_upload(
         background_tasks.add_task(
            procesar_ocr_en_segundo_plano,
            file_path,
-           programa,
+           programa_nombre,
            usuario_id
         )
         logger.info(

@@ -383,8 +383,10 @@ def limpiar_fecha(texto: str):
 
 def extraer_campos_por_lineas(texto: str):
     datos = {
-        "nombre_completo": None,
         "numero_documento": None,
+        "apellidos": None,
+        "nombres": None, 
+        "nombre_completo": None,
         "fecha_nacimiento": None,
         "sexo": None,
         "lugar_nacimiento": None,
@@ -447,22 +449,32 @@ def extraer_campos_por_lineas(texto: str):
             datos["fecha_expedicion"] = lineas[i - 1].strip()
 
         if tipo_doc == "antigua":
-            apellidos, nombres = "", ""
+            
             if re.search(r"APELLIDOS?", l) and i - 1 >= 0:
-                apellidos = lineas[i - 1].strip()
+                datos["apellidos"] = lineas[i - 1].strip()
+
             if re.search(r"NOMBRES?", l) and i - 1 >= 0:
-                nombres = lineas[i - 1].strip()
-            if nombres or apellidos:
-                datos["nombre_completo"] = f"{nombres} {apellidos}".strip()
+                datos["nombres"] = lineas[i - 1].strip()
+
+            if datos["nombres"] or datos["apellidos"]:
+                datos["nombre_completo"] = (
+                    f"{datos['nombres'] or ''} "
+                    f"{datos['apellidos'] or ''}"
+                ).strip()
 
         if tipo_doc == "nueva":
-            apellidos, nombres = "", ""
+            
             if re.search(r"APELLIDOS?", l) and i + 1 < len(lineas):
                 apellidos = lineas[i + 1].strip()
+
             if re.search(r"NOMBRES?", l) and i + 1 < len(lineas):
                 nombres = lineas[i + 1].strip()
+
             if nombres or apellidos:
-                datos["nombre_completo"] = f"{nombres} {apellidos}".strip()
+                datos["nombre_completo"] = (
+                    f"{datos['nombres'] or ''} "
+                    f"{datos['apellidos'] or ''}"
+                ).strip()
 
         if "RH" in l and i - 1 >= 0:
             rh_line = lineas[i - 1].strip()
