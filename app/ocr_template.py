@@ -403,10 +403,7 @@ def validar_campo_ocr(
 
         palabras = value.split()
 
-        if len(value) < 3:
-            return False
-
-        if not palabras:
+        if len(value) < 2:
             return False
 
         # Debe contener únicamente letras, espacios,
@@ -420,7 +417,7 @@ def validar_campo_ocr(
         # Evitar resultados OCR absurdamente cortos.
         if len(
             value.replace(" ", "")
-        ) < 3:
+        ) < 2:
             return False
 
         return True 
@@ -437,7 +434,7 @@ def validar_campo_ocr(
         # DESCARTAR VALORES DEMASIADO CORTOS
         # ------------------------------------------------------
 
-        if len(value) < 3:
+        if len(value) < 2:
             return False
 
         # ------------------------------------------------------
@@ -499,8 +496,10 @@ def validar_campo_ocr(
         # DESCARTAR VALORES DEMASIADO CORTOS
         # ------------------------------------------------------
         
-        if len(valor) < 4:
+        if len(valor) < 2:
             return False
+
+        return False
 
         # ------------------------------------------------------
         # NUNCA ACEPTAR TEXTO DEL REGISTRADOR
@@ -2687,18 +2686,18 @@ def comparar_resultados_ocr(
         )
 
         # ========================================================
-        # REGLA ESPECIAL PARA NÚMERO DE DOCUMENTO
+        # REGLA ESPECIAL PARA NÚMERO DE DOCUMENTO, APELIDOS Y NOMBRES
         # ========================================================
 
-        if field == "numero_documento":
+        if field == ("numero_documento", "apellidos", "nombres"):
 
             logger.warning(
-                "OCR_NUMERO_DOCUMENTO_CONFLICTO | "
-                "lado=%s | "
+                "OCR_CROP_PRIORIZADO | "
+                "lado=%s | campos=%s | "
                 "GENERAL=%r | "
-                "CROP=%r | "
-                "SE_PRIORIZA_CROP",
+                "CROP=%r",
                 lado,
+                field,
                 general,
                 crop
             )
