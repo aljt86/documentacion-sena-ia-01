@@ -2739,13 +2739,13 @@ def comparar_resultados_ocr(
                 "coinciden": False,
             }
         
-        if field in ("apellidos", "nombres"):
+        if field in ("apellidos", "nombres",):
 
             logger.warning(
-                "OCR_CROP_PRIORIZADO |"
+                "OCR_CROP_PRIORIZADO | "
                 "lado=%s | campo=%s | "
                 "GENERAL=%r | "
-                "CROP=%r | "
+                "CROP=%r",
                 lado,
                 field,
                 general,
