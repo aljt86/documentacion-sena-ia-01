@@ -3824,8 +3824,8 @@ def extract_fields(
                     "OCR_NOMBRE_COMPLETO_FINAL | "
                     "nombres=%r | apellidos=%r | "
                     "nombre_completo=%r",
-                    results["nombres"],
-                    results["apellidos"],
+                    nombres,
+                    apellidos,
                     nombre_completo
                 )
     except Exception as e:
