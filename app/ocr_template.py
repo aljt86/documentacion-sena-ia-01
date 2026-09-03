@@ -2718,13 +2718,34 @@ def comparar_resultados_ocr(
         # REGLA ESPECIAL PARA NÚMERO DE DOCUMENTO, APELIDOS Y NOMBRES
         # ========================================================
 
-        if field == ("numero_documento", "apellidos", "nombres"):
+        if field == "numero_documento":
 
             logger.warning(
-                "OCR_CROP_PRIORIZADO | "
-                "lado=%s | campos=%s | "
+                "OCR_NUMERO_DOCUMENTO_CONFLICTO | "
+                "lado=%s | "
                 "GENERAL=%r | "
-                "CROP=%r",
+                "CROP=%r | "
+                "SE_CONSERVA_GENERAL",
+                lado,
+                general,
+                crop
+            )
+
+            return {
+                "value": general,
+                "origen": "OCR_GENERAL",
+                "general_valido": True,
+                "crop_valido": True,
+                "coinciden": False,
+            }
+        
+        if field in ("apellidos", "nombres"):
+
+            logger.warning(
+                "OCR_CROP_PRIORIZADO |"
+                "lado=%s | campo=%s | "
+                "GENERAL=%r | "
+                "CROP=%r | "
                 lado,
                 field,
                 general,
