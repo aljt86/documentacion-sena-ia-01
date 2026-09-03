@@ -406,8 +406,39 @@ def validar_campo_ocr(
         if len(value) < 2:
             return False
 
-        # Debe contener únicamente letras, espacios,
-        # guiones o apóstrofes.
+        # --------------------------------------------------------
+        # RECHAZAR PALABRAS QUE SON ETIQUETAS O BASURA OCR
+        # --------------------------------------------------------
+
+        palabras_invalidas = {
+            "NOMBRE",
+            "NOMBRES",
+            "APELLIDO",
+            "APELLIDOS",
+            "DMBRES",
+            "OMBRES",
+            "PES",
+            "ME",
+        }
+
+        if any(
+            palabra.upper() in palabras_invalidas
+            for palabra in palabras
+        ):
+            logger.warning(
+                "OCR_VALOR_RECHAZADO | "
+                "campo=%s | "
+                "motivo=PALABRA_INVALIDA | "
+                "valor=%r",
+                field,
+                value
+            )
+            return False
+
+        # ========================================================
+        # SOLO LETRAS, ESPACIOS, GUIONES O APÓSTROFES
+        # ========================================================
+        
         if not re.fullmatch(
             r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+)*",
             value
@@ -498,8 +529,6 @@ def validar_campo_ocr(
         
         if len(valor) < 2:
             return False
-
-        return False
 
         # ------------------------------------------------------
         # NUNCA ACEPTAR TEXTO DEL REGISTRADOR
@@ -3399,24 +3428,40 @@ def extract_fields(
                         )
 
                 # ====================================================
-                # 4. SELECCIONAR PLANTILLA
+                # 4. SELECCIONAR PLANTILLA SEGÚN EL LADO DETECTADO
                 # ====================================================
 
                 if modelo == "digital":
 
                     zones = zones_digital
 
-                elif idx == 0:
+                elif lado == "anverso":
+                    zones = zones_hologramas_anverso
+                    
 
-                    zones = (
-                        zones_hologramas_anverso
-                    )
+                elif lado == "reverso":
+                    zones = zones_hologramas_reverso
 
                 else:
 
-                    zones = (
-                        zones_hologramas_reverso
+                    zones = {}
+
+                    logger.warning(
+                        "OCR_ZONAS_NO_SELECCIONADAS | "
+                        "pagina=%s | lado=%s | " \
+                        "motivo=LADO_DESCONOCIDO",
+                        page_number,
+                        lado
                     )
+
+                logger.info(
+                    "OCR_ZONAS_SELECCIONADAS | "
+                    "pagina=%s | lado=%s | " 
+                    "campos=%s",
+                    page_number,
+                    lado,
+                    list(zones.keys())
+                )
 
                 # ====================================================
                 # 5. OCR POR ZONA
