@@ -83,9 +83,9 @@ def _obtener_url_crop(file_path):
 # ============================================================
 
 zones_hologramas_anverso = {
-    "numero_documento": (0.04, 0.26, 0.85, 0.36),
-    "apellidos":        (0.04, 0.34, 0.50, 0.44),
-    "nombres":          (0.04, 0.46, 0.99, 0.60),
+    "numero_documento": (0.04, 0.15, 0.45, 0.28),
+    "apellidos":        (0.04, 0.30, 0.55, 0.42),
+    "nombres":          (0.04, 0.44, 0.55, 0.56),
 }
 
 
