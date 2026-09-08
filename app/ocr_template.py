@@ -410,30 +410,29 @@ def validar_campo_ocr(
         # RECHAZAR PALABRAS QUE SON ETIQUETAS O BASURA OCR
         # --------------------------------------------------------
 
-        palabras_invalidas = {
-            "NOMBRE",
-            "NOMBRES",
-            "APELLIDO",
-            "APELLIDOS",
-            "DMBRES",
-            "OMBRES",
-            "PES",
-            "ME",
-        }
+        # palabras_invalidas = {
+       #    "NOMBRE",
+        #   "APELLIDO",
+        #   "APELLIDOS",
+        #    "DMBRES",
+        #    "OMBRES",
+        #    "PES",
+        #    "ME",
+        #}
 
-        if any(
-            palabra.upper() in palabras_invalidas
-            for palabra in palabras
-        ):
-            logger.warning(
-                "OCR_VALOR_RECHAZADO | "
-                "campo=%s | "
-                "motivo=PALABRA_INVALIDA | "
-                "valor=%r",
-                field,
-                value
-            )
-            return False
+        # if any(
+        #    palabra.upper() in palabras_invalidas
+        #    for palabra in palabras
+        #):
+            #logger.warning(
+            #    "OCR_VALOR_RECHAZADO | "
+            #    "campo=%s | "
+            #    "motivo=PALABRA_INVALIDA | "
+            #    "valor=%r",
+            #    field,
+            #    value
+            #)
+            # return False
 
         # ========================================================
         # SOLO LETRAS, ESPACIOS, GUIONES O APÓSTROFES
@@ -718,9 +717,7 @@ def extraer_numero_documento_desde_texto(texto):
         )
 
         return elegido
-    
-    return None
-
+   
     # ==================================================
     # 2. BUSCAR NÚMEROS SIN SEPARADORES
     # ==================================================
@@ -744,7 +741,7 @@ def extraer_numero_documento_desde_texto(texto):
 
     if candidatos_validos:
 
-        return max(
+        elegido = max(
             candidatos_validos,
             key=len
         )
