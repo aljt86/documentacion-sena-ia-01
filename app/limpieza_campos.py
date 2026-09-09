@@ -49,19 +49,24 @@ def limpiar_texto(raw: str) -> str:
         return ""
 
     texto = unicodedata.normalize("NFKC", str(raw))
+    texto = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]", "", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
 
-    texto = re.sub(
-        r"[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]",
-        "",
-        texto
-    )
+    # Eliminar palabras comunes que son basura OCR
+    palabras_a_eliminar = [
+        "NOMBRE", "NOMBRES", "APELLIDO", "APELLIDOS",
+        "DMBRES", "OMBRES", "PES", "ME", "FSE", "BEN",
+        "REGISTRADOR", "INDICE", "DERECHO", "FECHA",
+        "EXPEDICION", "NACIONAL", "IDENTIFICACION",
+        "FIRMA", "ESTATURA", "SEXO", "RH", "CAMPOS",
+        "CamScanner", "Powered", "SAL", "CE", "FS", "AZ",
+        "JE", "W", "EE", "AA", "MM", "ELLIMOS"
+    ]
 
-    texto = re.sub(
-        r"\s+",
-        " ",
-        texto
-    ).strip()
+    for palabra in palabras_a_eliminar:
+        texto = re.sub(rf"\b{palabra}\b", "", texto, flags=re.IGNORECASE)
 
+    texto = re.sub(r"\s+", " ", texto).strip()
     return texto.title() if texto else ""
 
 

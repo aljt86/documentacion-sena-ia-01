@@ -83,9 +83,9 @@ def _obtener_url_crop(file_path):
 # ============================================================
 
 zones_hologramas_anverso = {
-    "numero_documento": (0.04, 0.15, 0.45, 0.28),
-    "apellidos":        (0.04, 0.30, 0.55, 0.42),
-    "nombres":          (0.04, 0.44, 0.55, 0.56),
+    "numero_documento": (0.04, 0.12, 0.40, 0.22),
+    "apellidos":        (0.04, 0.32, 0.50, 0.40),
+    "nombres":          (0.04, 0.44, 0.50, 0.52),
 }
 
 
@@ -1522,7 +1522,7 @@ def encontrar_etiqueta(
                     etiqueta_norm
                 )
 
-                if similitud >= 0.82:
+                if similitud >= 0.75:
 
                     score = similitud
 
