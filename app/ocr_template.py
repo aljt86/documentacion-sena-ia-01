@@ -2975,9 +2975,7 @@ def combinar_resultados(
 # PDF DIGITAL
 # ============================================================
 
-def extract_fields_from_text(
-    text
-):
+def extract_fields_from_text(text):
 
     results = {}
 
@@ -2989,151 +2987,82 @@ def extract_fields_from_text(
     # --------------------------------------------------------
 
     match = re.search(
-        r"\b(\d{6,15})\b",
-        text
+        r"NUMERO\s+([0-9]+)", 
+        text, re.IGNORECASE
     )
 
     if match:
+        numero = match.group(1).strip()
 
         results[
             "numero_documento"
-        ] = match.group(1)
+        ] = limpiar_numero(numero)
+
+    
+    # --------------------------------------------------------
+    # APELLIDOS
+    # --------------------------------------------------------
+    match = re.search(r"APELLIDOS\s+([A-ZÁÉÍÓÚÑ\s]+)", text, re.IGNORECASE)
+
+    if match:
+        results["apellidos"] = limpiar_texto(match.group(1).strip())
 
     # --------------------------------------------------------
-    # NOMBRE
+    # NOMBRES
     # --------------------------------------------------------
 
-    match = re.search(
-        r"(?:NOMBRE|NOMBRES?)\s*:?\s*"
-        r"([A-ZÁÉÍÓÚÑ\s]+)",
-        text,
-        re.IGNORECASE,
-    )
+    match = re.search(r"([A-ZÁÉÍÓÚÑ\s]+)", text, re.IGNORECASE)
 
     if match:
 
-        results[
-            "nombre_completo"
-        ] = limpiar_texto(
-            match.group(1).strip()
-        )
+        results["nombres"] = limpiar_texto(match.group(1).strip())
 
-    else:
+    # --------------------------------------------------------
+    # NOMBRE COMPLETO
+    # --------------------------------------------------------
 
-        results[
-            "nombre_completo"
-        ] = None
-
+    if results.get('apellidos') and results.get('nombres'):
+        results['nombre_completo'] = f"{results['nombres']} {results['apellidos']}"
+       
     # --------------------------------------------------------
     # FECHA
     # --------------------------------------------------------
 
-    match = re.search(
-        r"(\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{4})",
-        text
-    )
-
+    match = re.search(r"(\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{4})", text)
     if match:
-
-        results[
-            "fecha_nacimiento"
-        ] = limpiar_fecha(
-            match.group(1)
-        )
-
-    else:
-
-        results[
-            "fecha_nacimiento"
-        ] = None
+        results["fecha_nacimiento"] = limpiar_fecha(match.group(0))
 
     # --------------------------------------------------------
     # SEXO
     # --------------------------------------------------------
 
-    match = re.search(
-        r"(SEXO|GENERO)\s*:?\s*([MF])",
-        text,
-        re.IGNORECASE
-    )
-
+    match = re.search(r"(SEXO|GENERO)\s*:?\s*([MF])", text, re.IGNORECASE)
     if match:
-
-        results[
-            "sexo"
-        ] = limpiar_sexo(
-            match.group(2)
-        )
-
-    else:
-
-        results[
-            "sexo"
-        ] = None
+        results["sexo"] = limpiar_sexo(match.group(1))
 
     # --------------------------------------------------------
     # LUGAR
     # --------------------------------------------------------
 
-    match = re.search(
-        r"(?:LUGAR|CIUDAD)\s*(?:DE)?\s*"
-        r"NACIMIENTO\s*:?\s*"
-        r"([A-ZÁÉÍÓÚÑ\s]+)",
-        text,
-        re.IGNORECASE,
-    )
-
+    match = re.search(r'LUGAR DE NACIMIENTO\s+([A-ZÁÉÍÓÚÑ\s.()]+)', text, re.IGNORECASE)
     if match:
-
-        results[
-            "lugar_nacimiento"
-        ] = limpiar_texto(
-            match.group(1).strip()
-        )
+        results['lugar_nacimiento'] = limpiar_texto(match.group(1).strip())
 
     # --------------------------------------------------------
     # NACIONALIDAD
     # --------------------------------------------------------
 
-    match = re.search(
-        r"(NACIONALIDAD)\s*:?\s*"
-        r"([A-ZÁÉÍÓÚÑ\s]+)",
-        text,
-        re.IGNORECASE
-    )
-
+    match = re.search(r'NACIONALIDAD\s+([A-ZÁÉÍÓÚÑ\s]+)', text, re.IGNORECASE)
     if match:
-
-        results[
-            "nacionalidad"
-        ] = limpiar_texto(
-            match.group(2).strip()
-        )
-
-    else:
-
-        results[
-            "nacionalidad"
-        ] = None
+        results['nacionalidad'] = limpiar_texto(match.group(1).strip())
 
     # --------------------------------------------------------
     # RH
     # --------------------------------------------------------
 
-    match = re.search(
-        r"(TIPO\s*(?:DE)?\s*SANGRE|RH)"
-        r"\s*:?\s*([A-Z0-9+-]+)",
-        text,
-        re.IGNORECASE
-    )
-
+    match = re.search(r'(O-|O\+|A-|A\+|B-|B\+|AB-|AB\+)', text)
     if match:
-
-        results[
-            "tipo_sangre"
-        ] = limpiar_rh(
-            match.group(2)
-        )
+        results['tipo_sangre'] = match.group(1)
 
     return results
 
@@ -3294,6 +3223,7 @@ def extract_fields(
                 )
 
                 text_results = {}
+                texto_ok = False 
 
                 if text.strip():
 
@@ -3301,30 +3231,16 @@ def extract_fields(
                     # LECTURA TRADICIONAL
                     # ------------------------------------------------
 
-                    text_results = (
-                        extract_fields_from_text(
-                            text
-                        )
-                    )
-
+                    text_results = extract_fields_from_text(text)
+                    
                     # ------------------------------------------------
                     # COMBINAR RESULTADOS DE TEXTO
                     # ------------------------------------------------
 
-                    for key, value in (
-                        text_results.items()
-                    ):
-
-                        if (
-                            value
-                            and not results.get(key)
-                            and validar_campo_ocr(
-                                key,
-                                value
-                            )
-                        ):
-
+                    for key, value in (text_results.items()):
+                        if value and not results.get(key) and validar_campo_ocr(key, value):
                             results[key] = value
+                            texto_ok = True
 
                     logger.info(
                         "Página %s: resultados obtenidos "
@@ -3500,6 +3416,12 @@ def extract_fields(
                 # ====================================================
 
                 for field, coords in zones.items():
+                    # ✅ SI EL TEXTO YA TIENE UN RESULTADO VÁLIDO, SALTAMOS EL OCR
+                    if texto_ok and results.get(field):
+                        logger.info(
+                            "OCR_SALTADO | pagina=%s | campo=%s | ya existe en texto", page_number, field)
+                            continue     
+
 
                     # ------------------------------------------------
                     # NO saltamos el campo aunque ya exista.
