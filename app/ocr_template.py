@@ -406,6 +406,14 @@ def validar_campo_ocr(
         if len(value) < 2:
             return False
 
+        # Permitir valores aunque contengan ruido (no rechazar)
+        # Solo verificar que tenga letras
+        if not re.search(
+            r'[A-Za-zÁÉÍÓÚÑ]',
+            value
+        ):
+            return False
+
         # --------------------------------------------------------
         # RECHAZAR PALABRAS QUE SON ETIQUETAS O BASURA OCR
         # --------------------------------------------------------
@@ -2180,7 +2188,7 @@ def detectar_lado_cedula(
 
         if etiqueta_norm in texto_total:
 
-            score_anverso += 2
+            score_anverso += 4
 
         else:
 
@@ -2191,7 +2199,7 @@ def detectar_lado_cedula(
                     etiqueta_norm
                 ) >= 0.70:
 
-                    score_anverso += 1
+                    score_anverso += 2
 
                     break
 
@@ -2585,6 +2593,7 @@ def puntuar_resultado(
     elif field in (
         "apellidos",
         "nombres",
+
     ):
 
         palabras = str(
@@ -3399,13 +3408,18 @@ def extract_fields(
                 # 3.5. OCR POR ETIQUETAS Y LÍNEAS
                 # ====================================================
 
-                lado = detectar_lado_cedula(
-                    agrupar_lineas(
-                        obtener_datos_ocr_pagina(
-                            img
+                if page_number == 1:
+                    lado = "anverso"
+                    logger.info("OCR_LADO_FORZADO | pagina=%s | lado=anverso", page_number)
+                else:
+                    lado = detectar_lado_cedula(
+                        agrupar_lineas(
+                            obtener_datos_ocr_pagina(
+                                img
+                            )
                         )
                     )
-                )
+                
 
                 logger.info(
                     "OCR_LADO_FINAL | "
