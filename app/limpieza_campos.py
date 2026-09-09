@@ -52,15 +52,18 @@ def limpiar_texto(raw: str) -> str:
     texto = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]", "", texto)
     texto = re.sub(r"\s+", " ", texto).strip()
 
-    # Eliminar palabras comunes que son basura OCR
+    # Palabras que corresponden exclusivamente a etiquetas
+    # o elementos institucionales del documento.
+    #
+    # NO eliminar nombres repetidos.
+    # NO eliminar palabras comunes que puedan pertenecer
+    # realmente al nombre o apellido de una persona.
+
     palabras_a_eliminar = [
-        "NOMBRE", "NOMBRES", "APELLIDO", "APELLIDOS",
-        "DMBRES", "OMBRES", "PES", "ME", "FSE", "BEN",
-        "REGISTRADOR", "INDICE", "DERECHO", "FECHA",
-        "EXPEDICION", "NACIONAL", "IDENTIFICACION",
-        "FIRMA", "ESTATURA", "SEXO", "RH", "CAMPOS",
-        "CamScanner", "Powered", "SAL", "CE", "FS", "AZ",
-        "JE", "W", "EE", "AA", "MM", "ELLIMOS"
+        "NOMBRE",
+        "NOMBRES",
+        "APELLIDO",
+        "APELLIDOS",
     ]
 
     for palabra in palabras_a_eliminar:

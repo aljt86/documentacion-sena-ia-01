@@ -318,40 +318,38 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
                 if caracter.isdigit()
             )
 
-            # ==================================================
-            # VALIDAIÓN ESTRICTA DEL NÚMERO DE DOCUMENTO
-            # ==================================================
+        # ==================================================
+        # VALIDACIÓN ESTRICTA DEL NÚMERO DE DOCUMENTO
+        # ==================================================
 
-            numero_invalido = (
-                len(numero_doc) < 6
-                or len(numero_doc) > 10
-                or len(set(numero_doc)) == 1
-                or (
-                    len(numero_doc) == 4
-                    and numero_doc.startswith("19", "20")
-                )
-            )
-
-            if numero_invalido: 
-
+        if numero_doc:
+            if not (6 <= len(numero_doc) <= 10):
                 logger.warning(
-                    "OCR_NUMERO_DOCUMENTO_INVALIDO | "
+                    "NUMERO_DOCUMENTO_INVALIDO | "
                     "valor=%s | longitud=%s",
                     numero_doc,
                     len(numero_doc)
                 )
 
                 numero_doc = None
+            
+            else:
+
+                logger.info(
+                    "NUMERO_DOCUMENTO_VALIDO_OK | "
+                    "valor=%s | longitud=%s",
+                    numero_doc,
+                    len(numero_doc)
+                )
 
         else:
 
             logger.warning(
-                "OCR_NUMERO_DOCUMENTO_NO_CAPTURADO | "
+                "NUMERO_DOCUMENTO_NO_CAPTURADO | "
                 "Se continuará procesando los demás campos"
             )
 
-            numero_doc = None 
-          
+            
         # ==================================================
         # VALIDAR USUARIO
         # ==================================================

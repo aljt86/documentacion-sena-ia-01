@@ -1877,68 +1877,150 @@ def extraer_por_etiqueta(
 
     if field == "apellidos":
 
-        superiores = obtener_linea_superior(
-            lineas,
-            indice,
-            2
-        )
+        # ----------------------------------------------------
+        # 1. PRIMERO: BUSCAR EL VALOR EN LA MISMA LINEA
+        # ----------------------------------------------------
 
-        for superior in reversed(
-            superiores
-        ):
+        texto_misma_linea = texto_linea
 
-            texto = texto_de_linea(
-                superior
+        for etiqueta_apellido in LABELS["apellidos"]:
+
+            etiqueta_norm_apellido = normalizar_ocr_texto(
+                etiqueta_apellido
             )
 
-            if not texto:
-                continue
+            if etiqueta_norm_apellido in texto_norm:
 
-            if encontrar_etiqueta_en_texto(
-                texto,
-                LABELS["apellidos"]
-            ):
+                valor_misma_linea = re.sub(
+                    re.escape(etiqueta_norm_apellido),
+                    "",
+                    texto_norm,
+                    count=1,
+                    flags=re.IGNORECASE
+                ).strip()
 
-                continue
+                if valor_misma_linea:
 
-            if encontrar_cualquier_etiqueta(
-                texto
-            ):
+                    value = limpiar_texto(
+                        valor_misma_linea
+                    )
 
-                continue
+                    if validar_campo_ocr(
+                        field,
+                        value
+                    ):
 
-            value = limpiar_texto(
-                texto
+                        logger.info(
+                            "OCR_APELLIDOS_MISMA_LINEA | "
+                            "valor=%r",
+                            value
+                        )
+
+                        return value
+
+            # ----------------------------------------------------
+            # 2. RESPALDO: BUSCAR EN LINEAS SUPERIORES
+            # ----------------------------------------------------
+
+            superiores = obtener_linea_superior(
+                lineas,
+                indice,
+                2
             )
 
-            if validar_campo_ocr(
-                field,
-                value
+            for superior in reversed(
+                superiores
             ):
+                
+                texto = texto_de_linea(
+                    superior
+                )
 
-                return value
+                if not texto:
+                    continue
 
-        return None
+                if encontrar_cualquier_etiqueta(
+                    texto
+                ):
 
+                    continue
+
+                value = limpiar_texto(
+                    texto
+                )
+
+                if validar_campo_ocr(
+                    field,
+                    value
+                ):
+                    return value
+
+        return None        
+                
     # ========================================================
     # NOMBRES
     # ========================================================
 
     if field == "nombres":
 
-        superiores = obtener_linea_superior(
-            lineas,
-            indice,
-            2
-        )
+        # ----------------------------------------------------
+        # 1. PRIMERO: BUSCAR EL VALOR EN LA MISMA LINEA
+        # ----------------------------------------------------
 
-        for superior in reversed(
-            superiores
-        ):
+        texto_misma_linea = texto_linea
 
-            texto = texto_de_linea(
-                superior
+        for etiqueta_nombre in LABELS["nombres"]:
+
+            etiqueta_norm_nombre = normalizar_ocr_texto(
+                etiqueta_nombre
             )
+
+            if etiqueta_norm_nombre in texto_norm:
+
+                valor_misma_linea = re.sub(
+                    re.escape(etiqueta_norm_nombre),
+                    "",
+                    texto_norm,
+                    count=1,
+                    flags=re.IGNORECASE
+                ).strip()
+
+                if valor_misma_linea:
+
+                    value = limpiar_texto(
+                        valor_misma_linea
+                    )
+
+                    if validar_campo_ocr(
+                        field,
+                        value
+                    ):
+
+                        logger.info(
+                            "OCR_NOMBRES_MISMA_LINEA | "
+                            "valor=%r",
+                            value
+                        )
+
+                        return value
+
+            # ----------------------------------------------------
+            # 2. RESPALDO: BUSCAR EN LINEAS SUPERIORES
+            # ----------------------------------------------------
+
+            superiores = obtener_linea_superior(
+                lineas,
+                indice,
+                2
+            )
+
+            for superior in reversed(
+                superiores
+            ):
+                
+                texto = texto_de_linea(
+                    superior
+                )
 
             if not texto:
                 continue
