@@ -3420,7 +3420,7 @@ def extract_fields(
                     if texto_ok and results.get(field):
                         logger.info(
                             "OCR_SALTADO | pagina=%s | campo=%s | ya existe en texto", page_number, field)
-                            continue     
+                    continue     
 
 
                     # ------------------------------------------------
