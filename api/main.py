@@ -433,12 +433,13 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
             if not numero_doc:
 
                 logger.error(
-                    "ESTUDIANTE_NO_CREADO | "
-                    "OCR no obtuvo un numero de documento valido | "
+                    "NUMERO_DOCUMENTO_NO_CAPTURADO | "
+                    "Se creará estudiante sin número de documento | "
                     "Nombre=%r | Programa=%r",
                     nombre_completo,
                     programa 
                 )
+                numero_doc = f"sin_numero_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
                 return
 

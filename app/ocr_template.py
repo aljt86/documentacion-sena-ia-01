@@ -3199,51 +3199,43 @@ def extract_fields_from_text(text):
     # DOCUMENTO
     # --------------------------------------------------------
 
-    match = re.search(
-        r"NUMERO\s+([0-9]+)", 
-        text, 
-        re.IGNORECASE
-    )
+    match = re.search(r"NUMERO\s+([0-9]+)", text)
 
     if match:
-        numero = match.group(1).strip()
-
-        results[
-            "numero_documento"
-        ] = limpiar_numero(numero)
+        results["numero_documento"] = match.group(1)
 
     
     # --------------------------------------------------------
     # APELLIDOS
     # --------------------------------------------------------
-    match = re.search(r"APELLIDOS\s+([A-ZÁÉÍÓÚÑ\s]+)", text, re.IGNORECASE)
-
+    match = re.search(r"([A-ZÁÉÍÓÚÑ\s]+)\s+APELLIDOS", text, re.IGNORECASE)
     if match:
-        results["apellidos"] = limpiar_texto(match.group(1).strip())
+        apellidos = match.group(1).strip()
+        # Limpiar palabras que no son apellidos
+        apellidos = re.sub(r"\b(REPUBLICA|COLOMBIA|IDENTIFICACION|PERSONAL|CEDULA|CIUDADANIA|NUMERO|DE)\b", "", apellidos, flags=re.IGNORECASE)
+        apellidos = re.sub(r"\s+", " ", apellidos).strip()
+        if apellidos:
+            results["apellidos"] = limpiar_texto(apellidos)
 
     # --------------------------------------------------------
     # NOMBRES
     # --------------------------------------------------------
 
-    match = re.search(
-        r"NOMBRE?\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)", 
-        text, 
-        re.IGNORECASE
-    )
-
+    match = re.search(r"NOMBRE?\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)", text, re.IGNORECASE)
     if match:
 
-        valor = limpiar_texto(match.group(1).strip())
-        if validar_campo_ocr("nombres", valor):
-            results["nombres"] = valor
+        nombres = match.group(1).strip()
+        nombres = re.sub(r"\s+", " ", nombres).strip()
+        if nombres:
+            results["nombres"] = limpiar_texto(nombres)
 
     # --------------------------------------------------------
     # NOMBRE COMPLETO
     # --------------------------------------------------------
 
-    if results.get('apellidos') and results.get('nombres'):
-        results['nombre_completo'] = f"{results['nombres']} {results['apellidos']}"
-       
+    if results.get("apellidos") and results.get("nombres"):
+        results["nombre_completo"] = f"{results['nombres']} {results['apellidos']}"
+
     # --------------------------------------------------------
     # FECHA
     # --------------------------------------------------------
@@ -3261,7 +3253,7 @@ def extract_fields_from_text(text):
         results["sexo"] = limpiar_sexo(match.group(1))
 
     # --------------------------------------------------------
-    # LUGAR
+    # LUGAR DE NACIMIENTO
     # --------------------------------------------------------
 
     match = re.search(r'LUGAR DE NACIMIENTO\s+([A-ZÁÉÍÓÚÑ\s.()]+)', text, re.IGNORECASE)
@@ -3277,7 +3269,7 @@ def extract_fields_from_text(text):
         results['nacionalidad'] = limpiar_texto(match.group(1).strip())
 
     # --------------------------------------------------------
-    # RH
+    # RH - TIPO DE SANGRE
     # --------------------------------------------------------
 
     match = re.search(r'(O-|O\+|A-|A\+|B-|B\+|AB-|AB\+)', text)
@@ -3458,17 +3450,19 @@ def extract_fields(
                     # ------------------------------------------------
 
                     for key, value in (text_results.items()):
-                        if value and not results.get(key) and validar_campo_ocr(key, value):
+                        if value: 
                             results[key] = value
                             texto_ok = True
+                            logger.info("TEXTO_EMBEBIDO | campo=%s | valor=%s", key, value)
 
-                    logger.info(
-                        "Página %s: resultados obtenidos "
-                        "por lectura estructurada. "
-                        "Continuando con OCR por coordenadas.",
-                        page_number
-                    )
+                        # SI EL TEXTO YA DIO RESULTADOS, NO EJECUTAMOS OCR
+                        if texto_ok and all(results.get(k) for k in ["numero_documento", "apellidos", "nombres"]):
+                            logger.info("OCCR_SALTADO | texto embebido completo")
+                            resultado_final = normalizar_resultado_final(results)
+                            logger.info("OCR_RESULTADO_FINAL: %s", resultado_final)
+                            return resultado_final                        
 
+                    
                 # ====================================================
                 # 2. RENDERIZAR PÁGINA
                 # ====================================================
