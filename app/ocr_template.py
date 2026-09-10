@@ -3397,7 +3397,7 @@ def extract_fields(
         debug_dir
     )
 
-    OCR_RENDER_DPI = int(os.getenv("OCR_RENDER_DPI", 300))
+    OCR_RENDER_DPI = int(os.getenv("OCR_RENDER_DPI", 150))
 
     try:
 
@@ -3413,6 +3413,7 @@ def extract_fields(
 
                 return {}
 
+            
             for idx, page in enumerate(
                 pdf.pages[:2]
             ):
@@ -3550,7 +3551,6 @@ def extract_fields(
                         )
                     )
                 
-
                 logger.info(
                     "OCR_LADO_FINAL | "
                     "pagina=%s | lado=%s",
@@ -3634,7 +3634,7 @@ def extract_fields(
                     if texto_ok and results.get(field):
                         logger.info(
                             "OCR_SALTADO | pagina=%s | campo=%s | ya existe en texto", page_number, field)
-                    continue     
+                        continue     
 
 
                     # ------------------------------------------------
@@ -3756,8 +3756,8 @@ def extract_fields(
 
                         crop = crop.resize(
                             (
-                                crop.width * 2,
-                                crop.height * 2
+                                int(crop.width * 1.2),
+                                int(crop.height * 1.2),
                             ),
                             Image.Resampling.LANCZOS
                         )
