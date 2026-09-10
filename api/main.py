@@ -319,30 +319,30 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
             )
 
         # ==================================================
-        # VALIDACIÓN ESTRICTA DEL NÚMERO DE DOCUMENTO
+        # NORMALIZACIÓN NÚMERO DE DOCUMENTO
         # ==================================================
 
         if numero_doc:
-            if not (6 <= len(numero_doc) <= 10):
-                logger.warning(
-                    "NUMERO_DOCUMENTO_INVALIDO | "
-                    "valor=%s | longitud=%s",
-                    numero_doc,
-                    len(numero_doc)
-                )
-
-                numero_doc = None
             
-            else:
+            numero_doc_original = numero_doc
 
-                logger.info(
-                    "NUMERO_DOCUMENTO_VALIDO_OK | "
+            numero_doc = "".join(
+                caracter
+                for caracter in numero_doc
+                if caracter.isdigit()
+            )            
+           
+
+            logger.info(
+                "NUMERO_DOCUMENTO_NORMALIZADO | "
                     "valor=%s | longitud=%s",
-                    numero_doc,
-                    len(numero_doc)
+                    numero_doc_original,
+                    numero_doc
                 )
 
         else:
+
+            numero_doc = ""
 
             logger.warning(
                 "NUMERO_DOCUMENTO_NO_CAPTURADO | "
@@ -427,7 +427,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         else:
 
             # ==================================================
-            # NO CREAR ESTUDIANTE SIN NUMERO DE DOCUMENTO
+            # NO CREAR ESTUDIANTE SIN NUMERO
             # ==================================================
 
             if not numero_doc:

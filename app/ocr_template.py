@@ -119,8 +119,6 @@ LABELS = {
         "NÚMERO DE DOCUMENTO",
         "NUMERO",
         "NÚMERO",
-        "NUM",
-        "NUM.",
         "IDENTIFICACION",
         "IDENTIFICACIÓN",
     ],
@@ -136,8 +134,6 @@ LABELS = {
         "NOMBRE",
         "NOMBRES:",
         "NOMBRE:",
-        "NOMB",
-        "NOM",
     ],
 
     "fecha_nacimiento": [
@@ -1522,51 +1518,60 @@ def encontrar_etiqueta(
                     etiqueta_norm
                 )
 
-                if similitud >= 0.75:
+                # Para etiquetas de varias palabras
+                # exigimos una coincidencia bastante fuerte.
+
+                if (
+                    len(etiqueta_norm.split()) > 2
+                    and similitud >= 0.88
+                ):
+
+                    score = similitud
+
+                # Para etiquetas de una o dos palabras
+                elif (
+                    len(etiqueta_norm.split()) <= 2
+                    and similitud >= 0.92
+                ):
 
                     score = similitud
 
             # ====================================================
             # 4. PALABRA INDIVIDUAL
+            #
+            # SOLO para etiquetas de una palabra.
             # ====================================================
+            if (
+                score == 0
+                and len(etiqueta_norm.split()) == 1
+            ):
 
-            palabras_linea = texto.split()
+                for palabra in texto.split():
 
-            for palabra in palabras_linea:
+                    if len(palabra) < 4:
+                        continue
 
-                if len(palabra) < 4:
-                    continue
-
-                similitud = similitud_texto(
-                    palabra,
-                    etiqueta_norm
-                )
-
-                # Mucho más estricto que antes.
-                if similitud >= 0.88:
-
-                    score = max(
-                        score,
-                        similitud * 0.90
+                    similitud = similitud_texto(
+                        palabra,
+                        etiqueta_norm
                     )
 
-            # ====================================================
-            # ACEPTAR CANDIDATO
-            # ====================================================
+                    # Mucho más estricto que antes.
+                    if similitud >= 0.92:
 
+                        score = similitud * 0.90
+                        break
+            # ===================================================
+            # DESCARTAR
+            # ===================================================
             if score < 0.82:
                 continue
 
             candidato = {
-
                 "field": field,
-
                 "line_index": linea_index,
-
                 "line": linea,
-
                 "score": score,
-
                 "etiqueta": etiqueta,
             }
 
@@ -1740,14 +1745,19 @@ def extraer_por_etiqueta(
         # 2. BUSCAR EN LAS LÍNEAS INFERIORES
         # ----------------------------------------------------    
 
-        for siguiente in obtener_linea_inferior(lineas, indice, 2):
-
-            texto = texto_de_linea(siguiente)
-
-            numero = extraer_numero_documento_desde_texto(texto)
+        for siguiente in obtener_linea_inferior(
+            lineas, 
+            indice, 
+            2
+        ):
+            texto = texto_de_linea(
+                siguiente
+            )
+            numero = extraer_numero_documento_desde_texto(
+                texto
+            )
 
             if numero:
-
                 logger.info(
                     "OCR_NUMERO_DESDE_LINEA_INFERIOR | "
                     "texto=%r | numero=%s",
@@ -1757,8 +1767,32 @@ def extraer_por_etiqueta(
 
             return numero
 
+        #----------------------------------------------------
+        # 3. BUSCAR EN TODA LA PÁGINA
+        # 
+        # IMPORTANTE:
+        # Solamente se hace para el ANVERSO
+        # ----------------------------------------------------
+        if lado == "anverso":
+
+            texto_total = " ".join(
+                texto_de_linea(linea)
+                for linea in lineas
+            )
+
+            numero = extraer_numero_documento_desde_texto(
+                texto_total
+            )
+
+            if numero:
+                logger.info(
+                    "OCR_NUMERO_DESDE_PAGINA_COMPLETA | "
+                    "numero=%s",
+                    numero
+                )
+
+                return numero
         return None
-      
     # ========================================================
     # FECHA
     # ========================================================
@@ -1877,46 +1911,162 @@ def extraer_por_etiqueta(
 
     if field == "apellidos":
 
+        texto = texto_linea
+
+        texto_norm = normalizar_ocr_texto(texto_linea) 
+
+        # ----------------------------------------------------
+        # 1. PRIMERO: BUSCAR EL VALOR EN LA MISMA LINEA
+        # ----------------------------------------------------        
+
+        for etiqueta_apellido in LABELS["apellidos"]:
+
+            etiqueta_norm = normalizar_ocr_texto(
+                etiqueta_apellido
+            )
+
+            if etiqueta_norm in texto_norm:
+                posicion = texto_norm.find(etiqueta_norm)
+                despues = texto_norm[posicion + len(etiqueta_norm):].strip()
+
+                if despues:
+
+                    # ------------------------------------------------
+                    # Eliminar basura OCR que aparece antes
+                    # del apellido real.
+                    # ------------------------------------------------
+
+                    despues = re.sub(r"^(DE|DEL|LA|LOS|LAS)\s+", "", despues, flags=re.IGNORECASE).strip()
+
+                    value = limpiar_texto(despues)
+
+                    if validar_campo_ocr(field, value):
+
+                        logger.info("OCR_APELLIDOS_MISMA_LINEA | valor=%r", value)
+                        return value
+                                       
+            # ----------------------------------------------------
+            # 2. RESPALDO: BUSCAR EN LINEAS SUPERIORES
+            # ----------------------------------------------------
+
+            superiores = obtener_linea_superior(
+                lineas,
+                indice,
+                2
+            )
+
+            for superior in reversed(superiores):
+                
+                texto = texto_de_linea(
+                    superior
+                )
+
+                if not texto:
+                    continue
+
+                if encontrar_etiqueta_en_texto(
+                    texto,
+                    LABELS["apellidos"]
+                ):
+
+                    continue
+
+                if encontrar_cualquier_etiqueta(
+                    texto
+                ):
+
+                    continue
+
+                value = limpiar_texto(
+                    texto
+                )
+
+                if validar_campo_ocr(
+                    field,
+                    value
+                ):
+                    
+                    logger.info(
+                        "OCR_APELLIDOS_RESPALDO | "
+                        "valor=%r",
+                        value
+                    )
+
+                    return value
+
+            # ----------------------------------------------------
+            # 3. BUSCAR EN LA LÍNEA SIGUIENTE
+            # ----------------------------------------------------
+
+            for siguiente in obtener_linea_inferior(
+                lineas,
+                indice,
+                2
+            ):
+                texto = texto_de_linea(
+                    siguiente
+                )
+                if not texto:
+                    continue
+
+                if encontrar_cualquier_etiqueta(texto):
+                    continue
+                value = limpiar_texto(texto)
+                if validar_campo_ocr(field, value):
+                    logger.info(
+                        "OCR_APELLIDOS_LINEA_INFERIOR | "
+                        "valor=%r",
+                        value
+                    )
+                    return value
+
+        return None        
+                
+    # ========================================================
+    # NOMBRES
+    # ========================================================
+
+    if field == "nombres":
+        texto_norm = normalizar_ocr_texto(texto_linea)
+
         # ----------------------------------------------------
         # 1. PRIMERO: BUSCAR EL VALOR EN LA MISMA LINEA
         # ----------------------------------------------------
 
-        texto_misma_linea = texto_linea
+        for etiqueta_nombre in LABELS["nombres"]:
 
-        for etiqueta_apellido in LABELS["apellidos"]:
-
-            etiqueta_norm_apellido = normalizar_ocr_texto(
-                etiqueta_apellido
+            etiqueta_norm_nombre = normalizar_ocr_texto(
+                etiqueta_nombre
             )
 
-            if etiqueta_norm_apellido in texto_norm:
+            if etiqueta_norm_nombre in texto_norm:
 
-                valor_misma_linea = re.sub(
-                    re.escape(etiqueta_norm_apellido),
-                    "",
-                    texto_norm,
-                    count=1,
-                    flags=re.IGNORECASE
-                ).strip()
+                posicion = texto_norm.find(
+                    etiqueta_norm_nombre
+                )
 
-                if valor_misma_linea:
+                despues = texto_norm[
+                    posicion * len(etiqueta_norm_nombre):
+                ].strip()
 
-                    value = limpiar_texto(
-                        valor_misma_linea
+                if despues:
+                    
+                    valor = limpiar_texto(
+                        despues
                     )
 
                     if validar_campo_ocr(
-                        field,
-                        value
+                        "nombres",
+                        valor
                     ):
 
                         logger.info(
-                            "OCR_APELLIDOS_MISMA_LINEA | "
+                            "OCR_NOMBRES_MISMA_LINEA | "
                             "valor=%r",
-                            value
+                            valor
                         )
 
-                        return value
+                        return valor
 
             # ----------------------------------------------------
             # 2. RESPALDO: BUSCAR EN LINEAS SUPERIORES
@@ -1953,95 +2103,52 @@ def extraer_por_etiqueta(
                     field,
                     value
                 ):
-                    return value
-
-        return None        
                 
-    # ========================================================
-    # NOMBRES
-    # ========================================================
-
-    if field == "nombres":
-
-        # ----------------------------------------------------
-        # 1. PRIMERO: BUSCAR EL VALOR EN LA MISMA LINEA
-        # ----------------------------------------------------
-
-        texto_misma_linea = texto_linea
-
-        for etiqueta_nombre in LABELS["nombres"]:
-
-            etiqueta_norm_nombre = normalizar_ocr_texto(
-                etiqueta_nombre
-            )
-
-            if etiqueta_norm_nombre in texto_norm:
-
-                valor_misma_linea = re.sub(
-                    re.escape(etiqueta_norm_nombre),
-                    "",
-                    texto_norm,
-                    count=1,
-                    flags=re.IGNORECASE
-                ).strip()
-
-                if valor_misma_linea:
-
-                    value = limpiar_texto(
-                        valor_misma_linea
+                    logger.info(
+                        "OCR_NOMBRES_RESPALDO | "
+                        "valor=%r",
+                        value
                     )
 
-                    if validar_campo_ocr(
-                        field,
-                        value
-                    ):
-
-                        logger.info(
-                            "OCR_NOMBRES_MISMA_LINEA | "
-                            "valor=%r",
-                            value
-                        )
-
-                        return value
-
+                    return value
+            
             # ----------------------------------------------------
-            # 2. RESPALDO: BUSCAR EN LINEAS SUPERIORES
+            # 3. BUSCAR EN LAS LINEAS INFERIORES
             # ----------------------------------------------------
-
-            superiores = obtener_linea_superior(
+            for siguientes in obtener_linea_inferior(
                 lineas,
                 indice,
                 2
-            )
-
-            for superior in reversed(
-                superiores
             ):
-                
                 texto = texto_de_linea(
-                    superior
+                    siguientes
                 )
 
-            if not texto:
-                continue
+                if not texto:
+                    continue
 
-            if encontrar_cualquier_etiqueta(
-                texto
-            ):
+                if encontrar_cualquier_etiqueta(
+                    texto
+                ):
 
-                continue
+                    continue
 
-            value = limpiar_texto(
-                texto
-            )
+                value = limpiar_texto(
+                    texto
+                )
 
-            if validar_campo_ocr(
-                field,
-                value
-            ):
+                if validar_campo_ocr(
+                    field,
+                    value
+                ):
+                    
+                    logger.info(
+                        "OCR_NOMBRES_LINEA_INFERIOR | "
+                        "valor=%r",
+                        value
+                    )
 
-                return value
-
+                    return value
         return None
 
     # ========================================================
@@ -2198,7 +2305,7 @@ def encontrar_etiqueta_en_texto(
             similitud_texto(
                 texto_norm,
                 etiqueta_norm
-            ) >= 0.75
+            ) >= 0.90
         ):
 
             return True
@@ -2534,6 +2641,30 @@ def procesar_por_etiquetas(
     lineas = agrupar_lineas(
         datos
     )
+
+    # ===========================================================
+    # RECUPERACIÓN GENERAL DEL NÚMERO EN ANVERSO
+    # ==========================================================
+
+    if lado == "anverso":
+        texto_total_anverso = " ".join(
+            item["text"]
+            for item in datos
+        )
+
+        numero_general = (
+            extraer_numero_documento_desde_texto(
+                texto_total_anverso
+            )   
+        )
+
+        if numero_general:
+            resultados["numero_documento"] = (numero_general)
+            logger.info(
+                "OCR_NUMERO_GENERAL_ANVERSO | "
+                "numero=%s",
+                numero_general
+            )
 
     logger.info(
         "OCR_ETIQUETAS_LINEAS | "
@@ -3070,7 +3201,8 @@ def extract_fields_from_text(text):
 
     match = re.search(
         r"NUMERO\s+([0-9]+)", 
-        text, re.IGNORECASE
+        text, 
+        re.IGNORECASE
     )
 
     if match:
@@ -3093,11 +3225,17 @@ def extract_fields_from_text(text):
     # NOMBRES
     # --------------------------------------------------------
 
-    match = re.search(r"([A-ZÁÉÍÓÚÑ\s]+)", text, re.IGNORECASE)
+    match = re.search(
+        r"NOMBRE?\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+)", 
+        text, 
+        re.IGNORECASE
+    )
 
     if match:
 
-        results["nombres"] = limpiar_texto(match.group(1).strip())
+        valor = limpiar_texto(match.group(1).strip())
+        if validar_campo_ocr("nombres", valor):
+            results["nombres"] = valor
 
     # --------------------------------------------------------
     # NOMBRE COMPLETO
@@ -3845,7 +3983,9 @@ def extract_fields(
 
                 if nombres or apellidos:
 
-                    nombre_completo = limpiar_texto(f"{nombres} {apellidos}".strip())                          
+                    nombre_completo = limpiar_texto(
+                        f"{nombres} {apellidos}".strip()
+                    )                          
 
                     if validar_campo_ocr(
                         "nombre_completo",
