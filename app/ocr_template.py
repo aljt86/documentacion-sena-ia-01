@@ -3259,11 +3259,11 @@ def extract_fields_from_text(text):
     # DOCUMENTO
     # --------------------------------------------------------
 
-    match = re.search(r"NUMERO\s+([0-9]+)", text)
-
-    if match:
-        results["numero_documento"] = match.group(1)
-
+    for match in re.finditer(r"\b\d{6,10}\b", text):
+        candidato = match.group(0)
+        if validar_campo_ocr("numero_documento", candidato):
+            results["numero_documento"] = candidato
+            break
     
     # --------------------------------------------------------
     # APELLIDOS
