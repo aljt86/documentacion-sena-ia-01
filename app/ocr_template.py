@@ -1731,7 +1731,8 @@ def obtener_linea_inferior(
 
 def extraer_por_etiqueta(
     lineas,
-    field
+    field,
+    lado
 ):
 
     etiqueta = encontrar_etiqueta(
@@ -1809,7 +1810,7 @@ def extraer_por_etiqueta(
                     numero
                 )
 
-            return numero
+                return numero
 
         #----------------------------------------------------
         # 3. BUSCAR EN TODA LA PÁGINA
@@ -1834,28 +1835,7 @@ def extraer_por_etiqueta(
                 )
 
                 return numero
-
-        elif lado == "reverso":
-            texto_total = " ".join(
-                texto_de_linea(linea)
-                for linea in lineas
-            )
-
-            # Patrón: a-<7dígitos>-<6a10dígitos>-F-<más dígitos>
-            m = re.search(
-                r"A-\d{6,8}-(\d{6,10})-F-\d+",
-                texto_total
-            )
-            if m:
-                candidato = m.group(1)
-                limpio = limpiar_numero(candidato)
-                if validar_campo_ocr("numero_documento", limpio):
-                    logger.info(
-                        "OCR_NUMERO_DESDE_MRZ_REVERSO | "
-                        "numero=%s",
-                        limpio
-                    )
-                    return limpio
+        
         return None
     # ========================================================
     # FECHA
@@ -2827,7 +2807,8 @@ def procesar_por_etiquetas(
 
             valor = extraer_por_etiqueta(
                 lineas,
-                field
+                field,
+                lado
             )
 
             if valor:
