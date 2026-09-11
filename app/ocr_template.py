@@ -454,6 +454,24 @@ def validar_campo_ocr(
         ) < 2:
             return False
 
+        # --------------------------------------------------------
+        # Al menos una palabra de >= 3 letras útiles.
+        # --------------------------------------------------------
+        palabras = value.split()
+        palabras_utiles = [
+            p for p in palabras
+            if len(re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ]", "", p)) >= 3
+        ]
+        if not palabras_utiles:
+            return False
+
+        # --------------------------------------------------------
+        # Rechazar si TODAS las palabras son de 1-2 letras
+        # (caso típico de OCR basura: "A Ae", "X Y Z").
+        # --------------------------------------------------------
+        if all(len(p) <= 2 for p in palabras):
+            return False        
+
         return True 
     
     # --------------------------------------------------------
@@ -515,6 +533,32 @@ def validar_campo_ocr(
         # ------------------------------------------------------
         
         if not re.search(r"[A-ZÁÉÍÓÚ´Ñ]", valor):
+            return False
+
+        # Rechazar valores que NO sean un municipio/ciudad real.
+        # Criterios:
+        #   - Debe tener al menos 3 letras seguidas (no "Sns", "Eg Fe", "A").
+        #   - Debe tener al menos 4 caracteres útiles.
+        #   - No debe estar formado solo por consonantes sueltas separadas por espacios.
+        
+        letras_utiles = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ]", "", value)
+        if len(letras_utiles) < 4:
+            return False
+
+        # Al menos una palabra de ≥4 letras (evita "Sns", "Eg Fe", "A Ae")
+        
+        palabras_validas = [
+            p for p in value.split()
+            if len(re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ]", "", p)) >= 4
+        ]
+        if not palabras_validas:
+            return False
+
+        # Rechazar cadenas de consonantes sueltas: "A Ma A Pul E Ha Du Pa Is Od Lo A Dn Ón Y"
+        if len(value.split()) >= 4 and all(
+            len(re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ]", "", p)) <= 3
+            for p in value.split()
+        ):
             return False
         
         return True
@@ -1780,9 +1824,7 @@ def extraer_por_etiqueta(
                 for linea in lineas
             )
 
-            numero = extraer_numero_documento_desde_texto(
-                texto_total
-            )
+            numero = extraer_numero_documento_desde_texto(texto_total)
 
             if numero:
                 logger.info(
@@ -1792,6 +1834,28 @@ def extraer_por_etiqueta(
                 )
 
                 return numero
+
+        elif lado == "reverso":
+            texto_total = " ".join(
+                texto_de_linea(linea)
+                for linea in lineas
+            )
+
+            # Patrón: a-<7dígitos>-<6a10dígitos>-F-<más dígitos>
+            m = re.search(
+                r"A-\d{6,8}-(\d{6,10})-F-\d+",
+                texto_total
+            )
+            if m:
+                candidato = m.group(1)
+                limpio = limpiar_numero(candidato)
+                if validar_campo_ocr("numero_documento", limpio):
+                    logger.info(
+                        "OCR_NUMERO_DESDE_MRZ_REVERSO | "
+                        "numero=%s",
+                        limpio
+                    )
+                    return limpio
         return None
     # ========================================================
     # FECHA
@@ -2211,7 +2275,43 @@ def extraer_por_etiqueta(
             ):
 
                 return value
+            
+        # ----------------------------------------------------
+        # RESPALDO EN REVERSO:
+        # buscar patrón "MUNICIPIO (DEPARTAMENTO)"
+        # ----------------------------------------------------
 
+        if lado == "reverso":
+
+            texto_total = " ".join(
+                texto_de_linea(linea)
+                for linea in lineas
+            )
+
+            m = re.search(
+                r"([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ\s]{3,})\s*\(\s*([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ\s]{3,})\s*\)",
+                texto_total
+            )
+
+            if m:
+
+                municipio = m.group(1).strip()
+                departamento = m.group(2).strip()
+
+                candidato = f"{municipio} ({departamento})"
+
+                if validar_campo_ocr(
+                    "lugar_nacimiento",
+                    candidato
+                ):
+
+                    logger.info(
+                        "OCR_LUGAR_DESDE_PATRON_REVERSO | valor=%r",
+                        candidato
+                    )
+
+                    return limpiar_texto(candidato)
+        
         return None
 
     # ========================================================
@@ -2957,28 +3057,7 @@ def comparar_resultados_ocr(
                 "crop_valido": True,
                 "coinciden": False,
             }
-        
-        if field in ("apellidos", "nombres",):
-
-            logger.warning(
-                "OCR_CROP_PRIORIZADO | "
-                "lado=%s | campo=%s | "
-                "GENERAL=%r | "
-                "CROP=%r",
-                lado,
-                field,
-                general,
-                crop
-            )
-
-            return {
-                "value": crop,
-                "origen": "OCR_CROP_PRIORIZADO",
-                "general_valido": True,
-                "crop_valido": True,
-                "coinciden": False,
-            }
-
+       
         # ========================================================
         # RESTO DE CAMPOS
         # ========================================================
@@ -3975,11 +4054,20 @@ def extract_fields(
                 nombres = (results.get("nombres") or "").strip()
                 apellidos = (results.get("apellidos") or "").strip()
 
-                if nombres or apellidos:
+                nombres_ok = bool(nombres) and validar_campo_ocr("nombres", nombres)
+                apellidos_ok = bool(apellidos) and validar_campo_ocr("apellidos", apellidos)
+
+                partes = []
+                if nombres_ok:
+                    partes.append(nombres)
+                if apellidos_ok:
+                    partes.append(apellidos)
+
+                if partes:
 
                     nombre_completo = limpiar_texto(
-                        f"{nombres} {apellidos}".strip()
-                    )                          
+                        " ".join(partes)
+                    )
 
                     if validar_campo_ocr(
                         "nombre_completo",
@@ -3990,14 +4078,42 @@ def extract_fields(
                             nombre_completo
                         )
 
+                else:
+
+                    logger.warning(
+                        "OCR_NOMBRE_COMPLETO_DESCARTADO | "
+                        "nombres=%r | apellidos=%r",
+                        nombres,
+                        apellidos
+                    )
+
+                    results["nombre_completo"] = ""
+
                 logger.info(
                     "OCR_NOMBRE_COMPLETO_FINAL | "
                     "nombres=%r | apellidos=%r | "
                     "nombre_completo=%r",
                     nombres,
                     apellidos,
-                    nombre_completo
-                )
+                    results.get("nombre_completo", "")
+                )                
+
+                # ================================================
+                # 7. RESPALDO DE NACIONALIDAD
+                #
+                # El sistema solo procesa Cédula de Ciudadanía.
+                # Si el OCR no capturó nacionalidad, se infiere.
+                # ================================================
+
+                if not results.get("nacionalidad"):
+
+                    results["nacionalidad"] = "Colombiano"
+
+                    logger.info(
+                        "OCR_NACIONALIDAD_INFERIDA | "
+                        "valor=Colombiano | motivo=CC_COLOMBIANA"
+                    )
+
     except Exception as e:
 
         logger.exception(
