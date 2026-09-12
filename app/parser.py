@@ -32,6 +32,25 @@ CARD_ASPECT = 85.60 / 53.98
 # UTILIDADES
 # ============================================================
 
+def validar_numero_basico(numero):
+    """
+    valida un número de documento colombiano.
+
+    - Solo dígitos.
+    - Entre 6 y 10 dígitos.
+    - No todos los digitos iguales (000000000, 1111111111).
+    - No aceptar números de 4 dígitos (probables años).
+    """
+    if not numero or not numero.isdigit():
+        return False
+    if not (6 <= len(numero) <= 10):
+        return False
+    if len(set(numero)) == 1:
+        return False
+    if len(numero) == 4:
+        return False
+    return True
+
 def _ordenar_esquinas(pts):
     """Devuelve puntos en orden TL, TR, BR, BL."""
     pts = np.asarray(pts, dtype=np.float32)
@@ -191,7 +210,7 @@ def detectar_y_recortar_cedula(imagen, return_metadata=False):
                     "method": "quadrilateral",
                 }
 
-    if best is not None and best["score"] >= 0.45:
+    if best is not None and best["score"] >= 0.25:
         rectified = _perspectiva_rectificada(
             rgb,
             best["corners"],
@@ -489,9 +508,19 @@ def extraer_campos_por_lineas(texto: str):
                 datos["rh"] = l.strip()
 
     if not datos["numero_documento"]:
-        doc_match = re.findall(r"\d{8,10}", texto)
-        if doc_match:
-            datos["numero_documento"] = max(doc_match, key=len)
+       
+        # Respaldo: buscar SOLO números que estén solos en su propia línea.
+        # El número de la cédula en el anverso aparece aislado, no embebido
+        # dentro de cadenas MRZ ni dentro de otros números largos.
+        
+        for linea in lineas:
+            candidato = linea.strip()
+            # La línea debe ser SOLO digitos (nada más).
+            if re.fullmatch(r"\d{6,10}", candidato):
+                if validar_numero_basico(candidato):
+                    datos["numero_documento"] = candidato
+                    break
+       
 
     if not datos["nombre_completo"]:
         candidatos = re.findall(
