@@ -3693,9 +3693,12 @@ def extract_fields(
                     # ✅ SI EL TEXTO YA TIENE UN RESULTADO VÁLIDO, SALTAMOS EL OCR
                     if texto_ok and results.get(field):
                         logger.info(
-                            "OCR_SALTADO | pagina=%s | campo=%s | ya existe en texto", page_number, field)
-                        continue     
-
+                            "OCR_ZONA_EJECUTADA | "
+                            "pagina=%s | campo=%s | " 
+                            "Motivo=RECUPERACIÓN_OCR_POR_ZONA",
+                            page_number, 
+                            field
+                        )                          
 
                     # ------------------------------------------------
                     # NO saltamos el campo aunque ya exista.
