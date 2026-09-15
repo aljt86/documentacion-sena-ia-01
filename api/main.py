@@ -258,6 +258,40 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         logger.info("Programa: %s | UsuarioId: %s", programa, usuario_id)
 
         # ==================================================
+        # VERIFICAR CONEXIÓN REAL AL POSTGRES 
+        # ==================================================
+        try: 
+            conexion_info = db.execute(
+                text(
+                    """
+                    SELECT
+                        current_database() AS base_datos,
+                        current_schema() AS schema,
+                        inet_server_addr() AS servidor,
+                        inet_server_port() AS puerto
+                    """    
+                )
+            ).mappings().first()
+
+            logger.info(
+                "POSTGRESQL_CONEXION_REAL | "
+                "base_datos=%s | "
+                "esquema=%s | "
+                "servidor=%s | "
+                "puerto=%s",
+                conexion_info["base_datos"],
+                conexion_info["esquema"],
+                conexion_info["servidor"],
+                conexion_info["puerto"],
+            )
+
+        except Exception as e:
+            logger.exception(
+                "POSTGRESQL_ERROR_VERIFICANDO_CONEXION | %s",
+                e
+            )
+
+        # ==================================================
         # OCR
         # ==================================================
 
@@ -534,6 +568,40 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
             "POSTGRESQL_COMMIT_OK | "
             "Transacción confirmada correctamente"
         )
+
+        # ==================================================
+        # VERIFICACIÓN SQL DIRECTA DE TABLAS 
+        # ==================================================
+        try:
+
+            conteo_estudiante = db.excute(
+                text("SELECT COUNT(*) FROM estudiante")
+            ).scalar()
+
+            conteo_programa = db.execute(
+                text("SELECT COUNT(*) FROM programa")
+            ).scalar()
+
+            conteo_documento = db.excute(
+                text("SELECT COUNT(*) FROM documento")
+            ).scalar()
+
+            logger.info(
+                "POSTGRESQL_CONTEO_TABLAS | "
+                "estudiante=%s | "
+                "programa=%s | "
+                "documento=%s",
+                conteo_estudiante,
+                conteo_programa,
+                conteo_documento
+            )
+
+        except Exception as e:
+
+            logger.exception(
+                "POSTGRESQL_ERROR_CONTEO_TABLAS ° %S",
+                e
+            )
 
         # ==================================================
         # REFRESCAR OBJETOS DESDE POSTGRESQL
