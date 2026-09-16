@@ -266,7 +266,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
                     """
                     SELECT
                         current_database() AS base_datos,
-                        current_schema() AS schema,
+                        current_schema() AS esquema,
                         inet_server_addr() AS servidor,
                         inet_server_port() AS puerto
                     """    
@@ -542,7 +542,7 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
         db.add(nuevo_documento)
 
         # ==================================================
-        # GUARDAR TODO
+        # GUARDAR TODO 
         # ==================================================
 
         logger.info("== INICIANDO GUARDADOEN POSTGRESQL ==")
@@ -555,7 +555,13 @@ def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int
 
         db.flush()
 
-        logger.info("POSTGRESQL_FLUSH_OK | EstudianteId=%s | ProgramaId=%s | UsuarioId=%s | DocumentoId=%s", estudiante.Id, programa_db.id, usuario_id, nuevo_documento.Id)
+        logger.info(
+            "POSTGRESQL_FLUSH_OK | EstudianteId=%s | ProgramaId=%s | UsuarioId=%s | DocumentoId=%s", 
+            estudiante.Id, 
+            programa_db.id, 
+            usuario_id, 
+            nuevo_documento.Id
+        )
 
         # --------------------------------------------------
         # COMMIT
