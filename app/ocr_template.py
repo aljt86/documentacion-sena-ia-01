@@ -2732,12 +2732,24 @@ def procesar_por_etiquetas(
             for item in datos
         )
 
+        candidatos_numericos_debug = re.finall(
+            r"(?<!\d)\d[\d., -]{5,20}\d(?!\d)",
+            texto_total_anverso
+        )
+        
+        logger.info(
+            "OCR_NUMEROS_CANDIDATOS_DEBUG | "
+            "pagina=%s | candidatos=%r",
+            page_number,
+            candidatos_numericos_debug
+            )
+
         numero_general = (
             extraer_numero_documento_desde_texto(
                 texto_total_anverso
             )   
         )
-
+        
         if numero_general:
             resultados["numero_documento"] = (numero_general)
             logger.info(
