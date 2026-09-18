@@ -2732,7 +2732,7 @@ def procesar_por_etiquetas(
             for item in datos
         )
 
-        candidatos_numericos_debug = re.finall(
+        candidatos_numericos_debug = re.findall(
             r"(?<!\d)\d[\d., -]{5,20}\d(?!\d)",
             texto_total_anverso
         )
