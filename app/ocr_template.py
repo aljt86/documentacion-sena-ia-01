@@ -79,23 +79,105 @@ def _obtener_url_crop(file_path):
 
 
 # ============================================================
-# PLANTILLA NORMALIZADA
+# PLANTILLA CÉDULA AMARILLA CON HOLOGRAMAS
+# ============================================================
+# Geometría levantada físicamente en Ilustrator:
+# 
+# Tarjeta:
+#   Ancho = 85,6 mm
+#   Alto  = 53,98 mm
+# Cuadricula:
+#   0.5 mm x 0.5 mm
+# 171 columnas x 108 filas
+#
+# Las coordenadas siguientes parten de las mediciones reales realizadas sobre la plantilla física y se convierten a coordenadas normalizadas para la imagen OCR
+# ============================================================
+
+GRID_CARD_WIDTH_MM = 85.6
+GRID_CARD_HEIGHT_MM = 53.98
+GRID_CELL_MM = 0.5
+
+def _mm_to_normalized_zone(x1, y1, x2, y2):
+    """
+    Convierte coordenadas físicas de la plantilla de Iustrator (milimetros) a coordenadas normalizadas 0..1 para PIL/OpenCV.
+
+    No hace OCR por cada celda.
+    La cuadrícula solamente define con precisión las zonas físicas.
+    """
+
+    return(
+        x1 / GRID_CARD_WIDTH_MM,
+        y1 / GRID_CARD_HEIGHT_MM,
+        x2 / GRID_CARD_WIDTH_MM,
+        y2 / GRID_CARD_HEIGHT_MM,
+    )
+
+# ============================================================
+# ANVERSO
+# ============================================================
+#
+# Las coordenadas fueron medidas sobre:
+# 85.6 mm x 53.98 mm
+#
+# Se deja un pequeño margen alrededor del texto para evitar
+# cortar caracteres durante el OCR.
 # ============================================================
 
 zones_hologramas_anverso = {
-    "numero_documento": (0.04, 0.17, 0.45, 0.34),
-    "apellidos":        (0.04, 0.45, 0.55, 0.58),
-    "nombres":          (0.04, 0.60, 0.55, 0.72),
+    "numero_documento": _mm_to_normalized_zone(
+        14.317, 16.025,
+        37.696, 19.699,
+    ),
+
+    "apellidos": _mm_to_normalized_zone(
+        4.117, 19.689,
+        33.141, 23.164,
+    ),
+
+    "nombres": _mm_to_normalized_zone(
+        4.117, 27.512,
+        37.300, 30.000,
+    ),
 }
 
+# ============================================================
+# REVERSO
+# ============================================================
+#
+# Fecha:
+# medición real del texto 22-FEB-1986.
+#
+# Lugar:
+# se amplía deliberadamente la zona horizontal para admitir
+# lugares de nacimiento más largos:
+# SANTA FE DE BOGOTÁ, MEDELLÍN, ANTIOQUIA, etc.
+#
+# RH y SEXO:
+# zonas construidas a partir de las mediciones realizadas
+# sobre O+ y M.
+# ===========================================================
 
 zones_hologramas_reverso = {
-    "fecha_nacimiento": (0.70, 0.07, 0.94, 0.16),
-    "lugar_nacimiento": (0.10, 0.07, 0.43, 0.16),
-    "tipo_sangre":      (0.47, 0.16, 0.62, 0.23),
-    "sexo":             (0.68, 0.16, 0.80, 0.23),
-}
+    "fecha_nacimiento": _mm_to_normalized_zone(
+        55.543, 4.721,
+        74.297, 8.181,
+    ),
 
+    "lugar_nacimiento": _mm_to_normalized_zone(
+        31.500, 7.800,
+        54.500, 12.500,
+    ),
+
+    "tipo_sangre": _mm_to_normalized_zone(
+        49.467, 15.977,
+        57.739, 22.111,
+    ),
+
+    "sexo": _mm_to_normalized_zone(
+        65.270, 15.900,
+        70.038, 20.400,
+    ),
+}
 
 zones_digital = {
     "numero_documento": (0.65, 0.08, 0.95, 0.13),
