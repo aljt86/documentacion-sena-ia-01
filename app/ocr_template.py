@@ -3256,7 +3256,7 @@ def comparar_resultados_ocr(
                 if crop_normalizado in etiquetas_prohibidas:
                     logger.warning(
                         "OCR_CROP_RECHAZADO_SEMANTICA | "
-                        "lado=%s | campo=%s | crop=5r | "
+                        "lado=%s | campo=%s | crop=%r | "
                         "motivo=ETIQUETA_DOCUMENTO",
                         lado,
                         field,
