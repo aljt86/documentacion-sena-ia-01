@@ -3175,14 +3175,115 @@ def comparar_resultados_ocr(
 
     if crop_valido and not general_valido:
 
+        crop_normalizado = normalizar_ocr_texto(crop)
+
+        # ----------------------------------------------------
+        # ANVERSO: no aceptar automáticamente cualquier texto
+        # que Tesseract haya conseguido leer dentro del crop.
+        #
+        # El crop debe demostrar que corresponde al campo.
+        # ----------------------------------------------------
+
+        if lado == "anverso":
+
+            # 1. NÚMERO DE DOCUMENTO
+            # Debe tener entre 6 y 12 díigitos.
+            # Si coincide letras, no se acepta.
+            if field == "numero_documento":
+
+                if not re.fullmatch(r"\d{6,12}", crop_normalizado):
+                    logger.warning(
+                        "OCR_CROP_RECHAZADO_SEMANTICA | "
+                        "lado=%s | campo=%s | crop=%r | "
+                        "motivo=FORMATO_NUMERO_INVALIDO",
+                        lado,
+                        field,
+                        crop,
+                    )
+
+                    return {
+                        "value": None,
+                        "origen": "NINGUNO",
+                        "general_valido": False,
+                        "crop_valido": True,
+                        "coinciden": False,
+                    }
+
+            # 2. APELLIDOS
+            # Nunca debemos aceptar como apellido una etiqeta del documento.
+            elif field == "apellidos":
+
+                etiquetas_prohibidas = {
+                    "NUMERO",
+                    "APELLIDOS",
+                    "NOMBRES",
+                    "NACIONALIDAD",
+                    "IDENTIFICACION",
+                    "CEDULA",
+                }
+
+                if crop_normalizado in etiquetas_prohibidas:
+                    logger.warning(
+                        "OCR_CROP_RECHAZADO_SEMANTICA | "
+                        "lado=%s | campo=%s | crop=%r | "
+                        "motivo=ETIQUETA_DOCUMENTO",
+                        lado,
+                        field,
+                        crop,
+                    )
+
+                    return {
+                        "value": None,
+                        "origen": "NINGUNO",
+                        "general_valido": False,
+                        "crop_valido": False,
+                        "coinciden": False,
+                    }
+
+            # 3. NOMBRES
+            # Tampocos debemos aceptar etiquetas con nombres.
+            elif field == "nombres":
+
+                etiquetas_prohibidas = {
+                    "NUMERO",
+                    "APELLIDOS",
+                    "NOMBRES",
+                    "NACIONALIDAD",
+                    "IDENTIFICACION",
+                    "CEDULA",
+                }
+
+                if crop_normalizado in etiquetas_prohibidas:
+                    logger.warning(
+                        "OCR_CROP_RECHAZADO_SEMANTICA | "
+                        "lado=%s | campo=%s | crop=5r | "
+                        "motivo=ETIQUETA_DOCUMENTO",
+                        lado,
+                        field,
+                        crop,
+                    )
+
+                    return {
+                        "value": None,
+                        "origen": "NINGUNO",
+                        "general_valido": False,
+                        "crop_valido": False,
+                        "coinciden": False,
+                    }
+        # ----------------------------------------------------
+        # Si pasó las comprobaciones anteriores, sí puede
+        # utilizarse como recuperación mediante CROP.
+        # ----------------------------------------------------
+
         logger.warning(
             "OCR_CROP_RECUPERACION | "
             "lado=%s | campo=%s | "
-            "general=%r | crop=%r",
+            "general=%r | crop=%r | "
+            "resultado=ACEPTADO",
             lado,
             field,
             general,
-            crop
+            crop,
         )
 
         return {
@@ -3191,8 +3292,8 @@ def comparar_resultados_ocr(
             "general_valido": False,
             "crop_valido": True,
             "coinciden": False,
-        }
-
+        }     
+      
     # ========================================================
     # NINGUNO VÁLIDO
     # ========================================================
