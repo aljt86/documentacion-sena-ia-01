@@ -3315,6 +3315,28 @@ def comparar_resultados_ocr(
                         "crop_valido": False,
                         "coinciden": False,
                     }
+
+        # ----------------------------------------------------
+        # NOMBRES: NO ACPETAR CROP COMO RECUPERACION
+        # ----------------------------------------------------
+        if field == "nombres":
+
+            logger.warning(
+                "OCR_CROP_NOMBRES_BLOQUEADO | "
+                "lado=%s | crop=%r | "
+                "motivo=NO_USAR_CROP_COMO_RECUPERACION",
+                lado,
+                crop,
+            )
+
+            return {
+                "value": None,
+                "origem": "NINGUNO",
+                "general_valido": False,
+                "crop_valido": False,
+                "coinciden": False,
+            }
+        
         # ----------------------------------------------------
         # Si pasó las comprobaciones anteriores, sí puede
         # utilizarse como recuperación mediante CROP.
