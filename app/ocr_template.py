@@ -2251,6 +2251,11 @@ def extraer_por_etiqueta(
                     superior
                 )
 
+                logger.warning(
+                    "OCR_NOMBRES_RESPALDO_CANDIDATO | texto=%r",
+                    texto
+                )
+
                 if not texto:
                     continue
 
