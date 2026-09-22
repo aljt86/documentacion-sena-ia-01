@@ -2270,6 +2270,25 @@ def extraer_por_etiqueta(
                     texto
                 )
 
+                # ----------------------------------------------------
+                # RESPALDO DIRECTO DE NOMBRES
+                # La línea inmediatamente anterior a NOMBRES
+                # puede contener el nombre aunque tenga ruido OCR.
+                # ----------------------------------------------------
+                if field == "nombres":
+
+                    palabras = value.split()
+
+                    if len(palabras) >= 2:
+
+                        logger.info(
+                            "OCR_NOMBRES_RESPALDO | "
+                            "valor=%r",
+                            value
+                        )
+
+                        return value
+
                 if validar_campo_ocr(
                     field,
                     value
