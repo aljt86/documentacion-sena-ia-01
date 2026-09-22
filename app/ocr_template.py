@@ -1192,8 +1192,27 @@ def _ocr_field(
         len(mejor_grupo)
     )
 
-    return mejor["clean"]
+    # ========================================================
+    # NÚMERO DE DOCUMENTO:
+    # un resultado de una sola configuración de Tesseract
+    # no debe convertirse automáticamente en el número
+    # cuando el OCR general no encontró ningún candidato.
+    # ======================================================== 
+    
+    if field == "numero_docuemento" and len(mejor_grupo) < 2:
 
+        logger.warning(
+            "OCR_NUMERO_CROP_BAJA_CONFIRMACIÓN | "
+            "resultado%r | coincidencias=%s | "
+            "NO_SE_ACEPTA_COMO_CROP",
+            mejor["clean"],
+            len(mejor_grupo)
+        )
+
+        return None
+
+    return mejor["clean"]
+ 
 
 # ============================================================
 # LIMPIAR CAMPO
