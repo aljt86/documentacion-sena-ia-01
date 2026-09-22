@@ -2254,7 +2254,7 @@ def extraer_por_etiqueta(
                 if not texto:
                     continue
 
-                if encontrar_cualquier_etiqueta(
+                if encontrar_etiqueta_en_texto(
                     texto,
                     LABELS["nombres"]
                 ):
