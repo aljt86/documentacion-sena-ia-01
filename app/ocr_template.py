@@ -2207,9 +2207,9 @@ def extraer_por_etiqueta(
 
                     if(
                         valor_norm == "OMBRES"
-                        or valor_norm.starswith("OMBRES")
+                        or valor_norm.startswith("OMBRES")
                         or valor_norm == "NOMBRE"
-                        or valor_norm.starswith("NOMBRE")
+                        or valor_norm.startswith("NOMBRE")
                     ):
                         logger.warning(
                             "OCR_NOMBRES_RECHAZADO | "
