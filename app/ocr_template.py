@@ -2200,6 +2200,26 @@ def extraer_por_etiqueta(
                         despues
                     )
 
+                    # ---------------------------------------------
+                    # RECHAZAR RESIDUOS DE LA ETIQUETA "NOMBRES"
+                    # ---------------------------------------------
+                    valor_norm = normalizar_ocr_texto(valor)
+
+                    if(
+                        valor_norm == "OMBRES"
+                        or valor_norm.starswith("OMBRES")
+                        or valor_norm == "NOMBRE"
+                        or valor_norm.starswith("NOMBRE")
+                    ):
+                        logger.warning(
+                            "OCR_NOMBRES_RECHAZADO | "
+                            "motivo=RESIDUO_ETIQUETA | "
+                            "valor=%r",
+                            valor
+
+                        )
+                        continue
+
                     if validar_campo_ocr(
                         "nombres",
                         valor

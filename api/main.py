@@ -248,7 +248,11 @@ def normalizar_programa(programa: str) -> str:
 # ============================================
 # BACKGROUND OCR (crea su propia sesiГіn DB)
 # ============================================
-def procesar_ocr_en_segundo_plano(file_path: str, programa: str, usuario_id: int):
+def procesar_ocr_en_segundo_plano(
+        file_path: str, 
+        programa: str, 
+        usuario_id: int,       
+    ): 
     db = SessionLocal()
 
     try:
