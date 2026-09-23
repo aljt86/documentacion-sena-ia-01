@@ -2218,7 +2218,8 @@ def extraer_por_etiqueta(
                             valor
 
                         )
-                        continue
+                        
+                        valor = ""
 
                     if validar_campo_ocr(
                         "nombres",
