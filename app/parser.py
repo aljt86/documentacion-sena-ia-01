@@ -523,16 +523,36 @@ def extraer_campos_por_lineas(texto: str):
        
 
     if not datos["nombre_completo"]:
+        
         candidatos = re.findall(
             r"[A-ZÁÉÍÓÚÑ]{3,}(?:\s+[A-ZÁÉÍÓÚÑ]{3,}){1,3}",
             texto
         )
+
         candidatos = [
+            c.strip()
             c for c in candidatos
-            if "COLOMBIA" not in c and "IDENTIFICACION" not in c
+            if "COLOMBIA" not in c 
+            and "IDENTIFICACION" not in c
+            and "IDENTIFICACIÓN" not in c
+            and "CEDULA" not in c
+            and "CIUDADANIA" not in c
+            and "NUMERO" not in c
+            and "APELLIDO" not in c 
+            and "apellidos" not in c 
+            and "NOMBRE" not in c 
+            and "NOMBRES" not in c 
+            and "OMBRES" not in c 
+            and "DMBRES" not in c 
         ]
+
         if candidatos:
-            datos["nombre_completo"] = candidatos[0].title()
+            candidato = limpiar_texto(
+                candidatos[0]
+            )
+
+            if candidato and len(candidato.split()) >= 2:
+                datos["nombre_completo"] = candidato
 
     return datos
 

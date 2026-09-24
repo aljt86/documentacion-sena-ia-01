@@ -584,7 +584,7 @@ def procesar_ocr_en_segundo_plano(
         # ==================================================
         try:
 
-            conteo_estudiante = db.excute(
+            conteo_estudiante = db.execute(
                 text("SELECT COUNT(*) FROM estudiante")
             ).scalar()
 
@@ -592,7 +592,7 @@ def procesar_ocr_en_segundo_plano(
                 text("SELECT COUNT(*) FROM programa")
             ).scalar()
 
-            conteo_documento = db.excute(
+            conteo_documento = db.execute(
                 text("SELECT COUNT(*) FROM documento")
             ).scalar()
 
@@ -609,7 +609,7 @@ def procesar_ocr_en_segundo_plano(
         except Exception as e:
 
             logger.exception(
-                "POSTGRESQL_ERROR_CONTEO_TABLAS ° %S",
+                "POSTGRESQL_ERROR_CONTEO_TABLAS | error=%s",
                 e
             )
 

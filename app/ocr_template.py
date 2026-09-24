@@ -525,7 +525,8 @@ def validar_campo_ocr(
         # ========================================================
         
         if not re.fullmatch(
-            r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+)*",
+            r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+"
+            r"(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'’-]+)*",
             value
         ):
             return False
@@ -1085,6 +1086,19 @@ def _ocr_field(
             "--oem 3 --psm 7 "
             "-c tessedit_char_whitelist=ABO+-",
         ],
+
+        "apellidos": [
+            "--oem 3 --psm 7",
+            "--oem 3 --psm 8",
+            "--oem 3 --psm 6",
+            "--oem 3 --psm 13"
+        ],
+        "nombres": [
+            "--oem 3 --psm 7",
+            "--oem 3 --psm 8",
+            "--oem 3 --psm 6",
+            "--oem 3 --psm 13",
+        ],
     }
 
     field_configs = configs.get(
@@ -1199,7 +1213,7 @@ def _ocr_field(
     # cuando el OCR general no encontró ningún candidato.
     # ======================================================== 
     
-    if field == "numero_docuemento" and len(mejor_grupo) < 2:
+    if field == "numero_documento" and len(mejor_grupo) < 2:
 
         logger.warning(
             "OCR_NUMERO_CROP_BAJA_CONFIRMACIÓN | "
@@ -2191,7 +2205,7 @@ def extraer_por_etiqueta(
                 )
 
                 despues = texto_norm[
-                    posicion * len(etiqueta_norm_nombre):
+                    posicion + len(etiqueta_norm_nombre):
                 ].strip()
 
                 if despues:
@@ -3337,26 +3351,56 @@ def comparar_resultados_ocr(
                     }
 
         # ----------------------------------------------------
-        # NOMBRES: NO ACPETAR CROP COMO RECUPERACION
+        # NOMBRES: 
         # ----------------------------------------------------
+        # No aceptar autómaticamente un único resultado del crop.
+        #
+        # El crop solamente puede recuperar nombres cuando:
+        # 1. el general no produlo un valor valido;
+        # 2. el crop produjo un valor valido;
+        # 3. el OCR del crop tuvo conrifmación entre configuraciones.
+        # ------------------------------------------------------
         if field == "nombres":
 
-            logger.warning(
-                "OCR_CROP_NOMBRES_BLOQUEADO | "
+            logger.info(
+                "OCR_CROP_NOMBRES_EVALUANDO | "
                 "lado=%s | crop=%r | "
-                "motivo=NO_USAR_CROP_COMO_RECUPERACION",
+                lado,
+                crop,
+            )
+
+            if crop_valido:
+                logger.info(
+                    "OCR_CROP_NOMBRES_ACEPTADO | "
+                    "lado=%s | crop=%r | "
+                    "motivo=CROP_VALIDO_CONFIRMADO",
+                    lado,
+                    crop,
+                )
+
+                return {
+                    "value": None,
+                    "origem": "OCR_CROP_CONFIRMADO",
+                    "general_valido": False,
+                    "crop_valido": False,
+                    "coinciden": False,
+                }
+            logger.warning(
+                "COR_CROP_NOMBRS_RECHAZADO | "
+                "lado=%s | crop=%r | "
+                "motivo=CROP_NO_VALIDO",
                 lado,
                 crop,
             )
 
             return {
                 "value": None,
-                "origem": "NINGUNO",
+                "origen": "NINGUNO",
                 "general_valido": False,
                 "crop_valido": False,
                 "coinciden": False,
             }
-        
+    
         # ----------------------------------------------------
         # Si pasó las comprobaciones anteriores, sí puede
         # utilizarse como recuperación mediante CROP.

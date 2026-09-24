@@ -43,36 +43,75 @@ def limpiar_numero(raw):
 
 def limpiar_texto(raw: str) -> str:
     """
-    Limpia nombres, apellidos, nacionalidad y lugares.
+    Limpieza especifica para nombres y apellidos provenientes del OCR de la cédula.
+
+    Elimina residuos conocidos de las etiquetas NOMBRES / APELLIDOS que Tesseract puede dejar después de la limpeza general.
     """
     if not raw:
         return ""
 
     texto = unicodedata.normalize("NFKC", str(raw))
+
+    # Mantener solamene letras y espacios
+
     texto = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]", "", texto)
     texto = re.sub(r"\s+", " ", texto).strip()
 
-    # Palabras que corresponden exclusivamente a etiquetas
-    # o elementos institucionales del documento.
-    #
-    # NO eliminar nombres repetidos.
-    # NO eliminar palabras comunes que puedan pertenecer
-    # realmente al nombre o apellido de una persona.
+    # ----------------------------------------------------
+    # RESIDUOS OCR DE LA ETIQUETA NOMBRES
+    # ----------------------------------------------------
 
-    palabras_a_eliminar = [
-        "NOMBRE",
+    residuos_nombres = [
         "NOMBRES",
-        "APELLIDO",
-        "APELLIDOS",
+        "NOMBRE",
+        "OMBRES",
+        "OMBRE",
+        "MBRES",
+        "MBRE",
     ]
 
-    for palabra in palabras_a_eliminar:
+    se_elimino_residuo_nombres = False
+
+    for palabra in residuos_nombres:
+
+        texto = re.sub(rf"\b{palabra}\b", "", texto, flags=re.IGNORECASE)
+
+        if nuevo_texto != texto:
+            se_elimino_residuo_nombres = True
+
+        texto = nuevo_texto
+
+    # ---------------------------------------------------
+    # EVITAR QUE UN RESIDUO DE NOMBRES SE CONVIERTA EN UN VALOR INDEPENDIENTE
+    # ---------------------------------------------------
+
+    texto = re.sub(r"\s+", " ", texto).strip()
+
+    if se_elimino_residuo_nombres:
+        palabras_restantes = texto.split()
+
+        if len(palabras_restantes) == 1 and len(palabras_restantes[0]) <= 2:
+            return ""
+
+    # ----------------------------------------------------
+    # RESIDUOS OCR DE LA ETIQUETA APELLIDOS 
+    # ----------------------------------------------------
+
+    residuos_apellidos = [
+        "APELLIDOS",
+        "APELLIDO",
+        "PELLIDOS",
+        "PELLIDO",
+    ]
+
+    for palabra in residuos_apellidos:
+
         texto = re.sub(rf"\b{palabra}\b", "", texto, flags=re.IGNORECASE)
 
     texto = re.sub(r"\s+", " ", texto).strip()
+
     return texto.title() if texto else ""
-
-
+  
 def limpiar_fecha(raw: str) -> str:
     """
     Normaliza fechas OCR a YYYY-MM-DD.
