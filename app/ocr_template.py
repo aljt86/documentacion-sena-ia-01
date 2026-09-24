@@ -3379,10 +3379,10 @@ def comparar_resultados_ocr(
                 )
 
                 return {
-                    "value": None,
+                    "value": crop,
                     "origem": "OCR_CROP_CONFIRMADO",
                     "general_valido": False,
-                    "crop_valido": False,
+                    "crop_valido": True,
                     "coinciden": False,
                 }
             

@@ -72,11 +72,14 @@ def limpiar_texto(raw: str) -> str:
 
     se_elimino_residuo_nombres = False
 
-    for palabra in residuos_nombres:
+    for palabra in residuos_nombres:    
 
-    
-
-        nuevo_texto = re.sub(rf"\b{palabra}\b", "", texto, flags=re.IGNORECASE)
+        nuevo_texto = re.sub(
+            rf"\b{palabra}\b", 
+            "", 
+            texto, 
+            flags=re.IGNORECASE
+        )
 
         if nuevo_texto != texto:
             se_elimino_residuo_nombres = True
