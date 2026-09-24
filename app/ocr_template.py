@@ -3364,7 +3364,7 @@ def comparar_resultados_ocr(
 
             logger.info(
                 "OCR_CROP_NOMBRES_EVALUANDO | "
-                "lado=%s | crop=%r | "
+                "lado=%s | crop=%r | ",
                 lado,
                 crop,
             )
