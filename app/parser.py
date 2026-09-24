@@ -531,7 +531,7 @@ def extraer_campos_por_lineas(texto: str):
 
         candidatos = [
             c.strip()
-            c for c in candidatos
+        for c in candidatos
             if "COLOMBIA" not in c 
             and "IDENTIFICACION" not in c
             and "IDENTIFICACIÓN" not in c
