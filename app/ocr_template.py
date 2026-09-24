@@ -2086,7 +2086,7 @@ def extraer_por_etiqueta(
 
             if etiqueta_norm in texto_norm:
                 posicion = texto_norm.find(etiqueta_norm)
-                despues = texto_norm[posicion + len(etiqueta_norm):].strip()
+                despues = texto_norm[posicion + len(etiqueta_norm_nombre):].strip()
 
                 if despues:
 
@@ -3385,6 +3385,7 @@ def comparar_resultados_ocr(
                     "crop_valido": False,
                     "coinciden": False,
                 }
+            
             logger.warning(
                 "COR_CROP_NOMBRS_RECHAZADO | "
                 "lado=%s | crop=%r | "
