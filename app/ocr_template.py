@@ -1207,6 +1207,22 @@ def _ocr_field(
     )
 
     # ========================================================
+    # NOMBRES Y APELLIDOS:
+    # exigir confirmación entre configuraciones OCR
+    # ========================================================
+    if field in ("nombres", "apellidos") and len(mejor_grupo) < 2:
+        logger.warning(
+            "OCR_NOMBRE_BAJA_CONFIRMACIÓN | "
+            "campo=%s | resultado=%r | "
+            "coincidencia=%s | "
+            "NO_SE_ACEPTA_RESULTADO",
+            field,
+            mejor["clean"],
+            len(mejor_grupo),
+        )
+        return None  
+
+    # ========================================================
     # NÚMERO DE DOCUMENTO:
     # un resultado de una sola configuración de Tesseract
     # no debe convertirse automáticamente en el número
