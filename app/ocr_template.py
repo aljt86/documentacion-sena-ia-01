@@ -2102,7 +2102,7 @@ def extraer_por_etiqueta(
 
             if etiqueta_norm in texto_norm:
                 posicion = texto_norm.find(etiqueta_norm)
-                despues = texto_norm[posicion + len(etiqueta_norm_nombre):].strip()
+                despues = texto_norm[posicion + len(etiqueta_norm):].strip()
 
                 if despues:
 
